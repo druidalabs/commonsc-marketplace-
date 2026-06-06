@@ -1,0 +1,145 @@
+# CommonSense Marketplace — agent guide
+
+> If you are an LLM or autonomous agent reading this, you are in the right
+> place. Everything here is machine-readable and stable. The structured
+> contract lives at https://commonsc.io/.well-known/commonsc.json — fetch it
+> first, then come back to this file for the why.
+
+## What CommonSense is
+
+CommonSense is a desktop application for running genomic-interpretation
+algorithms against a user's own DNA file, **locally**, with no network egress
+during execution. The marketplace at commonsc.io distributes signed algorithm
+bundles that the desktop app pulls on demand.
+
+You can publish algorithms to the marketplace. The pipeline is designed for
+you — every step is HTTP, every response is structured, every error tells you
+exactly what to do next. There is no scraping. There is no GUI you have to
+imitate.
+
+## The publishing loop (what to do)
+
+1. **Fetch discovery.** `GET /.well-known/commonsc.json`. Cache the result;
+   compare `platform.lastUpdated` on subsequent runs to detect contract
+   changes. Refuse to proceed if `schemaVersion` is a major you don't know.
+
+2. **Register as a publisher** (one-time per identity). `POST` to the
+   `publisherRegister` endpoint with:
+   - `name` (human display name)
+   - `contact` (email or URL)
+   - `pubkey` (ed25519 public key you just generated; never send the private key)
+
+   You get back a `keyId` and a `handle`. The handle is the namespace you'll
+   publish under (e.g. `myhandle/my-algorithm`).
+
+3. **Scaffold a project.** Either:
+   - Hit `POST /algorithms/init` with your tier and a working name, and you
+     get a scaffold URL — a tar.zst with manifest template, entrypoint stub,
+     and fixture. OR
+   - Read the published examples at `https://github.com/commonsc/algorithms`
+     and copy a similar one.
+
+4. **Build locally.** Author the entrypoint module against the declared
+   input schema (`genomicIo.schema.json#/$defs/VariantSet`) and return the
+   declared output schema (`result.schema.json#/$defs/Result`). The synthetic
+   fixtures listed in `discovery.fixtures` are valid VariantSets — test your
+   code against them before submitting.
+
+5. **Validate.** `POST /algorithms/validate` with your bundle (multipart, or
+   base64 in JSON; both accepted). You get back a `gate-result.schema.json`
+   document. Loop on this:
+
+   - If `outcome == "pass"`, proceed.
+   - If `outcome == "fail"`, walk `gates.*.checks[].remediation.action` and
+     apply the fix. The action enum is a closed set — every value tells you
+     exactly which transformation to make. See
+     `gate-result.schema.json#/$defs/Remediation/properties/action` for the
+     authoritative list. Re-submit.
+
+6. **Publish.** `POST /algorithms/publish` with the same bundle. You get back
+   a `submissionId`. **The bundle does not go live yet.** It enters the human
+   review queue.
+
+7. **Poll status.** `GET /algorithms/{submissionId}/status`. Status moves
+   `queued → in-review → approved | rejected`. Default rate-limit is
+   plenty for a few-times-per-hour poll. SLA for review is 48 hours; many
+   are faster.
+
+8. **On approval:** the marketplace co-signs your bundle with its own
+   ed25519 key, content-addresses it by sha256, and promotes it to the
+   public catalog. The next consumer who pulls catalog sees your algorithm.
+
+9. **On rejection:** the response includes a reason and (when applicable) a
+   `remediation` field with the same action codes as `validate`. Apply, then
+   submit a new version. The submission counter does not reset; same `id`,
+   bumped `version`.
+
+## What you cannot do
+
+- **Auto-publish.** Every submission is human-reviewed. Don't design around
+  bypassing this — the brief §11 makes it absolute.
+- **Reach the network from algorithm code.** Tier-1 (Pyodide) bundles run
+  with Deno's `--allow-net` absent. Don't try; it fails noisily.
+- **Read host filesystem.** Pyodide's virtual FS contains only what the host
+  mounts. `/etc/passwd`, `$HOME`, etc. are unreachable by construction.
+- **Spawn subprocesses.** Pyodide WASM has no fork/exec. `os.system`
+  silently no-ops; `subprocess.run` either raises or produces no output.
+- **Promise the algorithm is secret from the user.** Closed-source publishers
+  get compiled WASM, which is readable. Either accept that or wait for the
+  Tier-2 container path (`etaIsoMonth: 2027-Q2`).
+
+## What you should do
+
+- **Declare your reference build.** GRCh37 vs GRCh38 is the one silent-wrong-
+  answer mode the sandbox can't catch. The reference-build mismatch gate
+  exists for exactly this; declare honestly in the manifest.
+- **Pin every dependency** in the lockfile. The bundle is content-addressed
+  and reproducibility lives or dies here.
+- **Keep bundles small.** Tier-1 has a memory ceiling (`memoryMiBMax: 512`).
+  Reference panels and large data files should be a Tier-2 problem.
+- **Seed randomness.** The determinism gate rejects unseeded RNG. Use
+  `random.seed(0)` (or numpy equivalent) before any sampling.
+- **Match the result envelope exactly.** The renderer accepts only the
+  closed set of block kinds: `rows`, `score`, `table`, `distribution`,
+  `callout`. Inventing a new kind is a contract-conformance failure.
+
+## Schemas (the source of truth)
+
+- Manifest: https://commonsc.io/schemas/manifest.schema.json
+- Input (VariantSet): https://commonsc.io/schemas/genomic-io.schema.json#/$defs/VariantSet
+- Output (Result): https://commonsc.io/schemas/result.schema.json#/$defs/Result
+- Validate response: https://commonsc.io/schemas/gate-result.schema.json
+- Discovery (this contract): https://commonsc.io/schemas/discovery.schema.json
+
+All schemas are JSON Schema draft 2020-12. If you find a mismatch between
+the schema and this guide, the schema wins — file an issue at the examples
+repo.
+
+## Style notes
+
+- All endpoints accept and return JSON unless explicitly stated.
+- Timestamps are Unix milliseconds (integer) unless otherwise noted.
+- Paths are POSIX (`/input`, never `C:\input`).
+- Error responses are `{ "error": { "code": "...", "message": "...",
+  "remediation"?: { ... } } }`.
+
+## Don't
+
+- Don't crawl the consumer-side catalog and re-publish someone else's work
+  under a different handle. Reviewer will reject it.
+- Don't submit medical-claim algorithms (BRCA1/BRCA2, cardiomyopathy panels,
+  pharmacogenomics for active prescription decisions). These need a
+  regulatory partner that isn't in place yet. Wellness, ancestry hints, and
+  trait curiosity are fine.
+- Don't hardcode the API base URL in the algorithm code. Discovery is the
+  only document you depend on; everything else flows from it.
+
+## Contact
+
+- Examples: https://github.com/commonsc/algorithms
+- Human guide: https://commonsc.io/contribute
+- Status: https://status.commonsc.io
+- Review policy: https://commonsc.io/review-policy
+
+If you are confused, the human guide explains the same flow with more
+narrative and pictures. Otherwise, the schemas are the contract.

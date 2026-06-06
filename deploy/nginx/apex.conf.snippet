@@ -1,0 +1,31 @@
+## Add the following two location blocks to your existing
+## /etc/nginx/sites-available/commonsc.io server block (inside the `server { }`
+## stanza, alongside whatever serves the website).
+##
+## Purpose: the discovery contract (/.well-known/commonsc.json) and the LLM-
+## facing companion (/llms.txt) sit at canonical apex URLs by convention.
+## Agents look there first. nginx forwards just those two paths to the
+## marketplace running on localhost:8787; everything else continues to hit
+## the website.
+##
+## After adding, run:
+##   sudo nginx -t
+##   sudo systemctl reload nginx
+
+    # Agent-discovery contract — served by the marketplace binary.
+    location = /.well-known/commonsc.json {
+        proxy_pass http://127.0.0.1:8787/.well-known/commonsc.json;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_cache_valid 200 5m;
+        add_header X-CommonSC-Surface "discovery" always;
+    }
+
+    # LLM-facing companion to the discovery doc. Plain text, agent-readable.
+    location = /llms.txt {
+        proxy_pass http://127.0.0.1:8787/llms.txt;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_cache_valid 200 5m;
+        add_header X-CommonSC-Surface "discovery" always;
+    }

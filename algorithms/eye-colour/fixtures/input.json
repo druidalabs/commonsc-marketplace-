@@ -1,0 +1,13 @@
+{
+  "fileKind": "23andme",
+  "referenceBuild": "GRCh38",
+  "sampleId": "fixture-eye_colour",
+  "variants": [
+    {
+      "chrom": "1",
+      "genotype": "AA",
+      "position": 1,
+      "rsid": "rs12913832"
+    }
+  ]
+}

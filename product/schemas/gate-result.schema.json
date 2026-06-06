@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://commonsc.io/schemas/gate-result.schema.json",
+  "title": "CommonSense Gate Report",
+  "description": "Output of running the four canonical compliance gates against a candidate bundle. The same shape is returned by the local dev-kit (`commonsc validate`), the server pipeline, and the autonomous-agent `POST /validate` endpoint. Autonomous contributors loop on this report's `remediation` until every gate passes.",
+  "type": "object",
+  "required": ["schemaVersion", "bundleSha256", "runAt", "outcome", "gates"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": "1" },
+    "bundleSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "Hash of the bundle that was evaluated. Lets callers verify the report applies to the artifact they have in hand."
+    },
+    "runAt": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Unix milliseconds at start of evaluation."
+    },
+    "runtime": {
+      "type": "object",
+      "description": "Where the gates ran. Server reports include the canonical pipeline build id; local reports include the dev-kit version. Mismatches between local and server gate code are flagged at submission.",
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "type": "string", "enum": ["devkit", "server"] },
+        "version": { "type": "string" }
+      },
+      "required": ["kind", "version"]
+    },
+    "outcome": {
+      "type": "string",
+      "enum": ["pass", "fail", "error"],
+      "description": "Aggregate. `pass` iff every gate passed. `error` means the gate runner itself failed (infrastructure problem, not a bundle problem)."
+    },
+    "gates": {
+      "type": "object",
+      "required": ["runtimeCompat", "contractConformance", "privacyNoEgress", "determinism"],
+      "additionalProperties": false,
+      "properties": {
+        "runtimeCompat": {
+          "$ref": "#/$defs/Gate",
+          "description": "Gate 1. The bundle loads in the declared tier with the declared interpreter and lockfile, all imports resolve, no unported C extensions, and the run fits inside the declared memory/time budget."
+        },
+        "contractConformance": {
+          "$ref": "#/$defs/Gate",
+          "description": "Gate 2. The entrypoint matches the declared signature, accepts the declared input schema, and emits output conforming to the declared result schema. Includes a reference-build sanity check (the silent-wrong-answer mode the brief calls out)."
+        },
+        "privacyNoEgress": {
+          "$ref": "#/$defs/Gate",
+          "description": "Gate 3. The sandbox observes no socket creation, no DNS resolution, no host-import call outside the declared capabilities, and no filesystem access outside `/input` (read) and `/output` (write). Run against both contributor fixtures and held-out fixtures."
+        },
+        "determinism": {
+          "$ref": "#/$defs/Gate",
+          "description": "Gate 4. Two runs of the same input produce byte-identical output. Failures point to unseeded randomness, time-dependence, or iteration-order leakage."
+        }
+      }
+    },
+    "humanReviewRequired": {
+      "type": "boolean",
+      "default": false,
+      "description": "Set by the server pipeline when the bundle would otherwise pass but needs a human eye — currently the reference-build mismatch warning is the canonical case. Local dev-kit reports leave this false."
+    }
+  },
+  "$defs": {
+    "Gate": {
+      "type": "object",
+      "required": ["status", "checks"],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["pass", "fail", "warn", "skipped"],
+          "description": "`warn` is reserved for the reference-build mismatch case — passes the bot but holds for human review."
+        },
+        "checks": {
+          "type": "array",
+          "description": "Per-check breakdown. Every gate has at least one check.",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/Check" }
+        },
+        "durationMs": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "Check": {
+      "type": "object",
+      "required": ["id", "title", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "description": "Stable id for the check. Agents key off this to decide which fix to apply."
+        },
+        "title": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["pass", "fail", "warn", "skipped"]
+        },
+        "evidence": {
+          "type": "string",
+          "description": "Verbatim trace (stderr line, attempted syscall, schema validation error). Bounded so logs can't be used as an exfiltration channel."
+        },
+        "remediation": { "$ref": "#/$defs/Remediation" }
+      }
+    },
+    "Remediation": {
+      "type": "object",
+      "description": "Machine-readable fix instruction. Autonomous agents parse `action` + `params`; humans read `humanText`.",
+      "required": ["humanText"],
+      "additionalProperties": false,
+      "properties": {
+        "humanText": {
+          "type": "string",
+          "minLength": 1,
+          "description": "One-paragraph explanation suitable for a contributor reading a CI log."
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "declare-capability",
+            "remove-capability",
+            "pin-dependency",
+            "drop-dependency",
+            "change-reference-build",
+            "match-output-schema",
+            "match-input-schema",
+            "seed-randomness",
+            "lower-memory-claim",
+            "raise-memory-claim",
+            "manual-review"
+          ],
+          "description": "Closed set of fixes an autonomous publisher knows how to apply. New actions are added here alongside the gate code that emits them."
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Action-specific arguments (e.g. `{ \"name\": \"numpy\", \"version\": \"1.26.4\" }`). Schema deliberately open so individual actions can evolve without rev'ing the gate-result version."
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,27 @@
+## Rust build artifacts (1.6GB on the dev machine; regenerated from source).
+target/
+**/*.rs.bk
+
+## Deno's npm cache for the Pyodide sidecar. Vendored on first run; not
+## something we want in the repo. The sidecar resolves it via deno.json.
+crates/host/sidecar/node_modules/
+
+## Runtime state created by the marketplace publish endpoint. Submissions
+## live here until a reviewer approves them; production deployments back this
+## up out-of-band.
+submissions/
+
+## The website lives in its own repo (druidalabs/commonsc.io). Excluded so
+## we don't try to embed it as a submodule.
+website/
+website-mockup/
+
+## macOS / editor noise.
+.DS_Store
+**/.DS_Store
+*.swp
+.idea/
+.vscode/
+
+## Local Claude session artifacts.
+.claude/

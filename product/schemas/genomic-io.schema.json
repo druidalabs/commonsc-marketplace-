@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://commonsc.io/schemas/genomic-io.schema.json",
+  "title": "CommonSense Genomic I/O",
+  "description": "Shapes the host can stream into a sandboxed algorithm, plus shared genomic primitives. The host parses raw files (23andMe txt, VCF, BAM, etc.) and hands the algorithm already-typed records — algorithms never touch raw file bytes.",
+  "$defs": {
+    "FileKind": {
+      "title": "FileKind",
+      "description": "Parsed input formats the host can produce. Algorithms declare which they accept in `manifest.supportedKinds`.",
+      "type": "string",
+      "enum": [
+        "23andme",
+        "ancestry",
+        "myheritage",
+        "vcf",
+        "vcf-gz",
+        "fasta",
+        "fastq",
+        "bam",
+        "sam",
+        "cram"
+      ]
+    },
+    "ReferenceBuild": {
+      "title": "ReferenceBuild",
+      "type": "string",
+      "enum": ["GRCh37", "GRCh38"],
+      "description": "Reference assembly the coordinates refer to. Mismatching algorithm and sample silently produce wrong answers — algorithms must reject runs whose `referenceBuild` differs from their own."
+    },
+    "Chromosome": {
+      "title": "Chromosome",
+      "type": "string",
+      "pattern": "^(?:[1-9]|1[0-9]|2[0-2]|X|Y|MT)$",
+      "description": "Normalized chromosome label. No `chr` prefix; mitochondrial is `MT`."
+    },
+    "Genotype": {
+      "title": "Genotype",
+      "type": "string",
+      "pattern": "^[ACGT-]{1,4}$",
+      "description": "Called genotype, normalized to sorted alleles (`AG`, never `GA`). `-` denotes a missing call on that strand."
+    },
+    "Variant": {
+      "title": "Variant",
+      "description": "One called variant from the user's sample. The host pre-normalizes; algorithms can rely on the shape.",
+      "type": "object",
+      "required": ["rsid", "chrom", "position", "genotype"],
+      "additionalProperties": false,
+      "properties": {
+        "rsid": {
+          "type": "string",
+          "pattern": "^(rs[0-9]+|i[0-9]+)$",
+          "description": "dbSNP rsID or vendor-specific internal id (e.g. 23andMe `i…`)."
+        },
+        "chrom": { "$ref": "#/$defs/Chromosome" },
+        "position": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "1-based position on the chromosome under the manifest's declared `referenceBuild`."
+        },
+        "ref": {
+          "type": "string",
+          "pattern": "^[ACGT]+$",
+          "description": "Reference allele at the locus. Optional for vendor exports that don't carry it."
+        },
+        "alt": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[ACGT]+$" },
+          "description": "Alternate allele(s) at the locus."
+        },
+        "genotype": { "$ref": "#/$defs/Genotype" },
+        "quality": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Phred-scaled quality if the source format carried one. Absent for SNP-array exports."
+        }
+      }
+    },
+    "VariantSet": {
+      "title": "VariantSet",
+      "description": "What the host streams into a Tier-1 algorithm. Variants are lazily yielded — large samples never materialize as one Python list. The host enforces a cap based on `manifest.requirements.memoryMiB`.",
+      "type": "object",
+      "required": ["referenceBuild", "fileKind", "variants"],
+      "additionalProperties": false,
+      "properties": {
+        "referenceBuild": { "$ref": "#/$defs/ReferenceBuild" },
+        "fileKind": { "$ref": "#/$defs/FileKind" },
+        "sampleId": {
+          "type": "string",
+          "description": "Opaque host-assigned id for the run's sample. Algorithms must treat it as opaque — it never contains user-identifying data."
+        },
+        "variants": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Variant" },
+          "description": "Stream-style variant iterator. The Pyodide shim exposes this as an async generator; this schema captures the materialized shape for validation and fixtures."
+        }
+      }
+    },
+    "SampleStats": {
+      "title": "SampleStats",
+      "description": "Summary the host already computes during parsing (the desktop app's `Stats`). Algorithms can request this instead of the full variant stream when they only need aggregates.",
+      "type": "object",
+      "required": ["fileKind", "totalRecords", "calledRecords"],
+      "additionalProperties": false,
+      "properties": {
+        "fileKind": { "$ref": "#/$defs/FileKind" },
+        "totalRecords": { "type": "integer", "minimum": 0 },
+        "calledRecords": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Records with a non-missing genotype."
+        },
+        "chromosomesObserved": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Chromosome" },
+          "uniqueItems": true
+        },
+        "callRate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "calledRecords / totalRecords. Surfaced to the user as the QC headline."
+        }
+      }
+    },
+    "Requirement": {
+      "title": "Requirement",
+      "description": "Resource budget the algorithm asks the host to allocate. The host refuses to start a run that would exceed local capacity; the canonical gates record the actual high-water mark and refuse to publish manifests that under-declare.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "memoryMiB": {
+          "type": "integer",
+          "minimum": 16,
+          "maximum": 8192,
+          "description": "Peak resident memory inside the sandbox. WASM linear memory ceiling — keep under 3500 MiB unless Memory64 has been confirmed enabled."
+        },
+        "wallSeconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600,
+          "description": "Wall-clock deadline. The host enforces via epoch interruption + a watchdog thread."
+        },
+        "diskMiB": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Scratch space under `/output`. Strictly bounded; algorithms cannot grow it at run time."
+        }
+      }
+    }
+  }
+}

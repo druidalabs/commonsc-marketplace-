@@ -1,0 +1,57 @@
+{
+  "blurb": "Can you smell asparagus pee? rs4481887 in the OR2M7 olfactory receptor cluster — about a quarter of people can't.",
+  "capabilities": {
+    "fsRead": [
+      "/input"
+    ],
+    "fsWrite": [
+      "/output"
+    ],
+    "network": false,
+    "progress": false
+  },
+  "category": "trait",
+  "entrypoint": {
+    "function": "compute",
+    "module": "asparagus_odour.main"
+  },
+  "id": "commonsc/asparagus-odour",
+  "input": {
+    "referenceBuild": "GRCh38",
+    "schemaRef": "genomic-io.schema.json#/$defs/VariantSet"
+  },
+  "license": "Apache-2.0",
+  "lockfile": {
+    "dependencies": [],
+    "interpreter": {
+      "name": "pyodide",
+      "version": "0.26.2"
+    }
+  },
+  "name": "Asparagus odour detection",
+  "output": {
+    "schemaRef": "result.schema.json#/$defs/Result"
+  },
+  "publisher": {
+    "handle": "commonsc",
+    "keyId": "commonsc-2026-01",
+    "name": "CommonSense Reference",
+    "url": "https://commonsc.io"
+  },
+  "requirements": {
+    "diskMiB": 4,
+    "memoryMiB": 128,
+    "wallSeconds": 10
+  },
+  "schemaVersion": "2",
+  "sourceUrl": "https://github.com/commonsc/algorithms/tree/main/asparagus_odour",
+  "supportedKinds": [
+    "23andme",
+    "ancestry",
+    "myheritage",
+    "vcf",
+    "vcf-gz"
+  ],
+  "tier": "pyodide",
+  "version": "0.1.0"
+}

@@ -1,0 +1,28 @@
+[package]
+name = "commonsc-marketplace"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+description = "CommonSense marketplace HTTP server — serves the discovery contract, schemas, and the algorithm registry."
+
+[[bin]]
+name = "commonsc-marketplace"
+path = "src/main.rs"
+
+[dependencies]
+axum.workspace = true
+tokio.workspace = true
+tower-http.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+clap.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tar.workspace = true
+zstd.workspace = true
+tempfile.workspace = true
+sha2.workspace = true
+hex.workspace = true
+commonsc-devkit = { path = "../devkit" }

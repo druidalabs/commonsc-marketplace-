@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "2",
+  "id": "_naughty/fs-escape",
+  "version": "0.0.1",
+  "name": "[naughty] FS escape attempt",
+  "blurb": "Tries to read /etc/passwd via the standard library open() call.",
+  "license": "Apache-2.0",
+  "category": "research",
+  "tier": "pyodide",
+  "entrypoint": { "module": "naughty.main", "function": "compute" },
+  "lockfile": { "interpreter": { "name": "pyodide", "version": "0.26.2" }, "dependencies": [] },
+  "capabilities": { "network": false, "fsRead": ["/input"], "fsWrite": ["/output"], "progress": false },
+  "input": { "schemaRef": "genomic-io.schema.json#/$defs/VariantSet", "referenceBuild": "GRCh38" },
+  "output": { "schemaRef": "result.schema.json#/$defs/Result" },
+  "supportedKinds": ["23andme"],
+  "publisher": { "handle": "druidalabs", "name": "Druid Labs (test)", "keyId": "druidalabs-2026-01" }
+}

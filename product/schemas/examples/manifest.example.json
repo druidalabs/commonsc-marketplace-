@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "2",
+  "id": "druidalabs/prs-height",
+  "version": "0.1.0",
+  "name": "Height polygenic score",
+  "blurb": "Estimates relative genetic contribution to adult height from called variants.",
+  "license": "Apache-2.0",
+  "category": "research",
+  "tier": "pyodide",
+  "entrypoint": {
+    "module": "prs_height.main",
+    "function": "compute"
+  },
+  "artifact": {
+    "mediaType": "application/vnd.commonsc.pyodide-bundle.tar+zstd",
+    "size": 184320,
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "lockfile": {
+    "interpreter": { "name": "pyodide", "version": "0.26.2" },
+    "dependencies": [
+      { "name": "numpy", "version": "1.26.4", "sha256": "1111111111111111111111111111111111111111111111111111111111111111" },
+      { "name": "pandas", "version": "2.2.0", "sha256": "2222222222222222222222222222222222222222222222222222222222222222" }
+    ]
+  },
+  "capabilities": {
+    "network": false,
+    "fsRead": ["/input"],
+    "fsWrite": ["/output"],
+    "progress": true
+  },
+  "input": {
+    "schemaRef": "genomic-io.schema.json#/$defs/VariantSet",
+    "referenceBuild": "GRCh38"
+  },
+  "output": {
+    "schemaRef": "result.schema.json#/$defs/Result"
+  },
+  "supportedKinds": ["23andme", "ancestry", "vcf"],
+  "requirements": {
+    "memoryMiB": 256,
+    "wallSeconds": 30,
+    "diskMiB": 16
+  },
+  "publisher": {
+    "handle": "druidalabs",
+    "name": "Druid Labs",
+    "url": "https://commonsc.io",
+    "keyId": "druidalabs-2026-01"
+  },
+  "sourceUrl": "https://github.com/commonsc/algorithms/prs-height",
+  "checksum": "0000000000000000000000000000000000000000000000000000000000000000",
+  "signatures": {
+    "publisher": {
+      "alg": "ed25519",
+      "keyId": "druidalabs-2026-01",
+      "value": "ZGV2ZWxvcG1lbnQtb25seS1zaWduYXR1cmU="
+    },
+    "marketplace": {
+      "alg": "ed25519",
+      "keyId": "commonsc-marketplace-2026-01",
+      "value": "ZGV2ZWxvcG1lbnQtb25seS1zaWduYXR1cmU="
+    }
+  }
+}

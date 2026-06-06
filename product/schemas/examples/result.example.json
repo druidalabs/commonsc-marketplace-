@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "1",
+  "algorithmId": "druidalabs/prs-height",
+  "algorithmVersion": "0.1.0",
+  "computedAt": 1780000000000,
+  "summary": "Score sits in the middle band of the reference population.",
+  "detail": "We summed the effect sizes of 612 height-associated variants present in your sample, weighted by their reported betas, and compared the total against a reference distribution. The score is informational only and not a clinical estimate.",
+  "tone": "moss",
+  "blocks": [
+    {
+      "kind": "score",
+      "title": "Polygenic score",
+      "value": 0.42,
+      "unit": "z",
+      "scale": { "min": -3, "max": 3 },
+      "bands": [
+        { "at": -1, "label": "lower 16%", "tone": "amber" },
+        { "at": 0,  "label": "median",    "tone": "neutral" },
+        { "at": 1,  "label": "upper 16%", "tone": "amber" }
+      ],
+      "interpretation": "Slightly above the population median. The middle two-thirds of people fall between -1 and 1."
+    },
+    {
+      "kind": "rows",
+      "title": "Inputs",
+      "rows": [
+        { "label": "Variants used", "value": "612 of 678 declared" },
+        { "label": "Reference build", "value": "GRCh38" },
+        { "label": "Missing variants", "value": "66", "tone": "amber" }
+      ]
+    },
+    {
+      "kind": "table",
+      "title": "Largest contributors",
+      "columns": [
+        { "key": "rsid", "label": "Variant" },
+        { "key": "beta", "label": "Effect", "align": "right" },
+        { "key": "geno", "label": "Your genotype" }
+      ],
+      "rows": [
+        { "rsid": "rs143384",  "beta": "+0.041", "geno": "GG" },
+        { "rsid": "rs2871865", "beta": "-0.038", "geno": "AG" },
+        { "rsid": "rs7639425", "beta": "+0.033", "geno": "AA" }
+      ]
+    },
+    {
+      "kind": "callout",
+      "tone": "amber",
+      "title": "Not a clinical result",
+      "body": "Height is highly polygenic and strongly environmental. This score explains a small fraction of the variation between people and is not a prediction of any individual's height."
+    }
+  ]
+}

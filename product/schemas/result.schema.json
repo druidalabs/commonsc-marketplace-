@@ -1,0 +1,214 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://commonsc.io/schemas/result.schema.json",
+  "title": "CommonSense Result Envelope",
+  "description": "The single shape every algorithm returns. The desktop app renders any conforming result without algorithm-specific UI code — that is the point of the envelope. A result is a `summary` (always present), an optional `detail`, an optional ordered list of `blocks`, and provenance.",
+  "$defs": {
+    "Tone": {
+      "title": "Tone",
+      "type": "string",
+      "enum": ["moss", "amber", "rust", "neutral"],
+      "description": "Semantic colour for a value or block. Moss = positive/within-range, amber = attention/inconclusive, rust = adverse/out-of-range, neutral = informational. The UI maps these to the Grove palette."
+    },
+    "Result": {
+      "title": "Result",
+      "type": "object",
+      "required": ["schemaVersion", "algorithmId", "algorithmVersion", "computedAt", "summary"],
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": "1",
+          "description": "Result envelope version. Pinned independently from the manifest schema."
+        },
+        "algorithmId": {
+          "type": "string",
+          "description": "Manifest `id` that produced this result. Lets the UI thread results back to the catalog entry."
+        },
+        "algorithmVersion": {
+          "type": "string",
+          "description": "Manifest `version` that produced this result. Frozen at run time so re-renders against a newer install still show what was actually computed."
+        },
+        "computedAt": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Unix milliseconds when the result was produced inside the sandbox."
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240,
+          "description": "One-line human-readable headline. The only required content. Shown on cards, in the heatmap, and as the first thing on the result page."
+        },
+        "detail": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Plain-prose explanation. Rendered under the summary on the result page. Avoid markdown — the UI controls typography."
+        },
+        "tone": {
+          "$ref": "#/$defs/Tone",
+          "description": "Headline tone. Drives the summary card colour and the heatmap cell."
+        },
+        "unavailable": {
+          "type": "string",
+          "description": "When set, the result is informational-only because the algorithm could not actually compute (e.g. required variant not called). The UI greys the entry and shows this reason."
+        },
+        "blocks": {
+          "type": "array",
+          "description": "Ordered visualisation blocks. The UI renders them top-to-bottom. Algorithms compose these from the primitives below; no other shapes are accepted.",
+          "items": { "$ref": "#/$defs/Block" }
+        }
+      }
+    },
+    "Block": {
+      "title": "Block",
+      "description": "Discriminated by `kind`. Add new kinds here, never inside algorithm-specific code — the renderer is a closed set on purpose.",
+      "oneOf": [
+        { "$ref": "#/$defs/RowsBlock" },
+        { "$ref": "#/$defs/ScoreBlock" },
+        { "$ref": "#/$defs/TableBlock" },
+        { "$ref": "#/$defs/DistributionBlock" },
+        { "$ref": "#/$defs/CalloutBlock" }
+      ]
+    },
+    "RowsBlock": {
+      "title": "RowsBlock",
+      "description": "Label / value pairs. The workhorse block — what the existing built-in reports already use.",
+      "type": "object",
+      "required": ["kind", "rows"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "rows" },
+        "title": { "type": "string" },
+        "rows": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["label", "value"],
+            "additionalProperties": false,
+            "properties": {
+              "label": { "type": "string" },
+              "value": { "type": "string" },
+              "tone": { "$ref": "#/$defs/Tone" }
+            }
+          }
+        }
+      }
+    },
+    "ScoreBlock": {
+      "title": "ScoreBlock",
+      "description": "A numeric value plotted against named bands (e.g. polygenic score with population thresholds). The UI draws a horizontal scale; bands provide reference points, not bins.",
+      "type": "object",
+      "required": ["kind", "value", "scale"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "score" },
+        "title": { "type": "string" },
+        "value": { "type": "number" },
+        "unit": { "type": "string" },
+        "scale": {
+          "type": "object",
+          "required": ["min", "max"],
+          "additionalProperties": false,
+          "properties": {
+            "min": { "type": "number" },
+            "max": { "type": "number" }
+          }
+        },
+        "bands": {
+          "type": "array",
+          "description": "Reference markers along the scale. Rendered as labelled ticks.",
+          "items": {
+            "type": "object",
+            "required": ["at", "label"],
+            "additionalProperties": false,
+            "properties": {
+              "at": { "type": "number" },
+              "label": { "type": "string" },
+              "tone": { "$ref": "#/$defs/Tone" }
+            }
+          }
+        },
+        "interpretation": {
+          "type": "string",
+          "description": "What this score means in plain English. Two sentences max."
+        }
+      }
+    },
+    "TableBlock": {
+      "title": "TableBlock",
+      "description": "Small tabular data (e.g. per-variant contributions in a PRS). Capped to keep the UI honest about how much it can render — large data should be summarised, not dumped.",
+      "type": "object",
+      "required": ["kind", "columns", "rows"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "table" },
+        "title": { "type": "string" },
+        "columns": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 6,
+          "items": {
+            "type": "object",
+            "required": ["key", "label"],
+            "additionalProperties": false,
+            "properties": {
+              "key": { "type": "string" },
+              "label": { "type": "string" },
+              "align": { "type": "string", "enum": ["left", "right"] }
+            }
+          }
+        },
+        "rows": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "object",
+            "additionalProperties": { "type": "string" }
+          }
+        }
+      }
+    },
+    "DistributionBlock": {
+      "title": "DistributionBlock",
+      "description": "Pre-binned histogram with the user's value marked. The algorithm must bin server-side; the UI does not bin.",
+      "type": "object",
+      "required": ["kind", "bins", "userValue"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "distribution" },
+        "title": { "type": "string" },
+        "bins": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "required": ["from", "to", "count"],
+            "additionalProperties": false,
+            "properties": {
+              "from": { "type": "number" },
+              "to": { "type": "number" },
+              "count": { "type": "integer", "minimum": 0 }
+            }
+          }
+        },
+        "userValue": { "type": "number" },
+        "unit": { "type": "string" }
+      }
+    },
+    "CalloutBlock": {
+      "title": "CalloutBlock",
+      "description": "Standalone framed paragraph for caveats or context. Distinct from `detail` because it sits inline between other blocks.",
+      "type": "object",
+      "required": ["kind", "body"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "callout" },
+        "tone": { "$ref": "#/$defs/Tone" },
+        "title": { "type": "string" },
+        "body": { "type": "string", "minLength": 1, "maxLength": 1000 }
+      }
+    }
+  },
+  "$ref": "#/$defs/Result"
+}

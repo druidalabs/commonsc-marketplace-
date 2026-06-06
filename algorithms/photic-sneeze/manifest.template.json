@@ -1,0 +1,57 @@
+{
+  "blurb": "Do you sneeze when you step into bright sunlight? rs10427255 near TRPV1 raises the odds you do.",
+  "capabilities": {
+    "fsRead": [
+      "/input"
+    ],
+    "fsWrite": [
+      "/output"
+    ],
+    "network": false,
+    "progress": false
+  },
+  "category": "trait",
+  "entrypoint": {
+    "function": "compute",
+    "module": "photic_sneeze.main"
+  },
+  "id": "commonsc/photic-sneeze",
+  "input": {
+    "referenceBuild": "GRCh38",
+    "schemaRef": "genomic-io.schema.json#/$defs/VariantSet"
+  },
+  "license": "Apache-2.0",
+  "lockfile": {
+    "dependencies": [],
+    "interpreter": {
+      "name": "pyodide",
+      "version": "0.26.2"
+    }
+  },
+  "name": "Photic sneeze reflex",
+  "output": {
+    "schemaRef": "result.schema.json#/$defs/Result"
+  },
+  "publisher": {
+    "handle": "commonsc",
+    "keyId": "commonsc-2026-01",
+    "name": "CommonSense Reference",
+    "url": "https://commonsc.io"
+  },
+  "requirements": {
+    "diskMiB": 4,
+    "memoryMiB": 128,
+    "wallSeconds": 10
+  },
+  "schemaVersion": "2",
+  "sourceUrl": "https://github.com/commonsc/algorithms/tree/main/photic_sneeze",
+  "supportedKinds": [
+    "23andme",
+    "ancestry",
+    "myheritage",
+    "vcf",
+    "vcf-gz"
+  ],
+  "tier": "pyodide",
+  "version": "0.1.0"
+}

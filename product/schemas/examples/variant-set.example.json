@@ -1,0 +1,11 @@
+{
+  "referenceBuild": "GRCh38",
+  "fileKind": "23andme",
+  "sampleId": "run-2c8f6a",
+  "variants": [
+    { "rsid": "rs4988235", "chrom": "2", "position": 135851076, "genotype": "GG" },
+    { "rsid": "rs671",     "chrom": "12", "position": 111803962, "genotype": "GG" },
+    { "rsid": "rs1815739", "chrom": "11", "position": 66560624,  "genotype": "CT" },
+    { "rsid": "rs1801133", "chrom": "1",  "position": 11796321,  "genotype": "CT" }
+  ]
+}

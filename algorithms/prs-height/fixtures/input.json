@@ -1,0 +1,15 @@
+{
+  "referenceBuild": "GRCh38",
+  "fileKind": "23andme",
+  "sampleId": "fixture-prs-height-01",
+  "variants": [
+    { "rsid": "rs143384",   "chrom": "20", "position": 35437976,  "genotype": "GG" },
+    { "rsid": "rs2871865",  "chrom": "12", "position": 102392560, "genotype": "AG" },
+    { "rsid": "rs7639425",  "chrom": "3",  "position": 141183524, "genotype": "AA" },
+    { "rsid": "rs6060369",  "chrom": "20", "position": 39830714,  "genotype": "CT" },
+    { "rsid": "rs2230754",  "chrom": "10", "position": 12247222,  "genotype": "CC" },
+    { "rsid": "rs6440003",  "chrom": "3",  "position": 142751987, "genotype": "AG" },
+    { "rsid": "rs1208",     "chrom": "8",  "position": 18400593,  "genotype": "GG" },
+    { "rsid": "rs10946808", "chrom": "6",  "position": 26193863,  "genotype": "AG" }
+  ]
+}

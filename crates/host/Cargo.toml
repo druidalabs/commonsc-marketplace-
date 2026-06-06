@@ -1,0 +1,23 @@
+[package]
+name = "commonsc-host"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+description = "Tier-1 sandbox host: spawns a Deno + Pyodide sidecar and drives it over a stdio bridge."
+
+[[bin]]
+name = "commonsc-host"
+path = "src/main.rs"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+clap.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+sha2.workspace = true
+zstd.workspace = true
+tar.workspace = true
+tempfile.workspace = true
+hex.workspace = true

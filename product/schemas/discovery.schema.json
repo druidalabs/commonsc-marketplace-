@@ -1,0 +1,238 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://commonsc.io/schemas/discovery.schema.json",
+  "title": "CommonSense Marketplace Discovery",
+  "description": "Single, versioned document an agent (human-assisted or autonomous) fetches from `/.well-known/commonsc.json` to learn how to publish to the CommonSense algorithm marketplace. This is the agent-first entry point — every URL an agent needs to author, validate, publish, and check the status of an algorithm is reachable from here. A change to this contract is a breaking change to every downstream agent; bump `schemaVersion` accordingly.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "platform",
+    "schemas",
+    "tiers",
+    "api",
+    "authentication",
+    "fixtures",
+    "docs",
+    "review"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "1",
+      "description": "Discovery contract version. The customer app and the contributor pipeline both refuse unknown majors — older agents fail loud rather than guess."
+    },
+    "platform": {
+      "type": "object",
+      "required": ["name", "url", "lastUpdated"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "url": { "type": "string", "format": "uri" },
+        "lastUpdated": {
+          "type": "string",
+          "format": "date",
+          "description": "ISO-8601 date this discovery doc was last regenerated. Agents may compare against the previous fetch to detect contract changes."
+        },
+        "status": {
+          "type": "string",
+          "format": "uri",
+          "description": "Optional URL of the platform status page."
+        }
+      }
+    },
+    "schemas": {
+      "type": "object",
+      "required": ["manifest", "genomicIo", "result", "gateResult", "discovery"],
+      "additionalProperties": false,
+      "description": "Canonical URLs for every schema the contributor pipeline cares about. The customer app pins these by $id and refuses bundles whose manifest references a different schema URL.",
+      "properties": {
+        "manifest": { "type": "string", "format": "uri" },
+        "genomicIo": { "type": "string", "format": "uri" },
+        "result": { "type": "string", "format": "uri" },
+        "gateResult": { "type": "string", "format": "uri" },
+        "discovery": { "type": "string", "format": "uri" }
+      }
+    },
+    "tiers": {
+      "type": "array",
+      "description": "Sandbox tiers an algorithm can target. Order is informational; `available: true` is the only thing that gates submission today.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "available"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "enum": ["pyodide", "webr", "container"] },
+          "available": { "type": "boolean" },
+          "interpreter": {
+            "type": "object",
+            "required": ["name", "version"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string" },
+              "version": { "type": "string" }
+            }
+          },
+          "constraints": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "memoryMiBMax": { "type": "integer", "minimum": 16 },
+              "wallSecondsMax": { "type": "integer", "minimum": 1 },
+              "diskMiBMax": { "type": "integer", "minimum": 0 },
+              "networkAllowed": { "const": false },
+              "subprocessAllowed": { "const": false },
+              "fsReadAllowlist": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Paths the algorithm may read inside its sandbox. Today: `/input` (host-streamed variants)."
+              },
+              "fsWriteAllowlist": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Paths the algorithm may write. Today: `/output` (host-owned scratch)."
+              }
+            }
+          },
+          "etaIsoMonth": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(?:[01][0-9]|Q[1-4])$",
+            "description": "Where `available: false`, the rough ETA — e.g. `2027-01` or `2027-Q2`. Helps an agent decide whether to wait or pick a different tier."
+          }
+        }
+      }
+    },
+    "api": {
+      "type": "object",
+      "required": ["base", "endpoints"],
+      "additionalProperties": false,
+      "properties": {
+        "base": {
+          "type": "string",
+          "format": "uri",
+          "description": "API root. Endpoint `path` values are appended."
+        },
+        "endpoints": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/Endpoint" },
+          "description": "Named endpoints. Agents should look up by name, not by hardcoded path — the path is allowed to move within a major version of this discovery doc.",
+          "required": [
+            "publisherRegister",
+            "algorithmsInit",
+            "algorithmsValidate",
+            "algorithmsPublish",
+            "algorithmsStatus",
+            "catalogIndex"
+          ]
+        },
+        "rateLimits": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Free-text rate-limit descriptions, keyed by endpoint name. Soft contract — actual limits are enforced server-side and may be tighter for new publishers."
+        }
+      }
+    },
+    "authentication": {
+      "type": "object",
+      "required": ["scheme", "registration"],
+      "additionalProperties": false,
+      "properties": {
+        "scheme": {
+          "type": "string",
+          "enum": ["ed25519-keypair"],
+          "description": "Today, ed25519 publisher keypair. Future schemes (organisation-owned HSM-backed keys) will be added as additional enum values."
+        },
+        "registration": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL where a new publisher registers — either a web form (human-driven) or the `publisherRegister` endpoint (agent-driven)."
+        },
+        "tokenForm": {
+          "type": "string",
+          "description": "How a request authenticates once registered. E.g. `JWT signed with publisher private key, 1h TTL, iss=keyId, aud=api.commonsc.io`."
+        }
+      }
+    },
+    "fixtures": {
+      "type": "object",
+      "description": "Synthetic input fixtures an agent can use to test its entrypoint locally before submitting. All fixtures conform to genomic-io.schema.json — they're real-shaped data, never patient data.",
+      "additionalProperties": { "type": "string", "format": "uri" },
+      "properties": {
+        "syntheticVariantSet23andme": { "type": "string", "format": "uri" },
+        "syntheticVariantSetAncestry": { "type": "string", "format": "uri" },
+        "syntheticVariantSetVcf": { "type": "string", "format": "uri" }
+      }
+    },
+    "docs": {
+      "type": "object",
+      "required": ["humanGuide", "machineGuide"],
+      "additionalProperties": false,
+      "properties": {
+        "humanGuide": {
+          "type": "string",
+          "format": "uri",
+          "description": "The publish-an-algorithm guide for humans."
+        },
+        "machineGuide": {
+          "type": "string",
+          "format": "uri",
+          "description": "Distilled markdown for LLM consumption — typically `https://commonsc.io/llms.txt`."
+        },
+        "examples": {
+          "type": "string",
+          "format": "uri",
+          "description": "Public repository of reference algorithms. The CommonSense first-party algorithms live here; agents can read them as templates."
+        }
+      }
+    },
+    "review": {
+      "type": "object",
+      "required": ["queue", "slaHours"],
+      "additionalProperties": false,
+      "properties": {
+        "queue": {
+          "type": "string",
+          "enum": ["human-in-the-loop"],
+          "description": "Every submission gets human review before public catalog promotion. The brief §11 makes auto-publish forbidden; this field locks that in machine-readable form."
+        },
+        "slaHours": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Approximate review turnaround in hours. Soft commitment, not enforced."
+        },
+        "policy": {
+          "type": "string",
+          "format": "uri",
+          "description": "Reviewer rubric — what gets approved, what gets rejected, how to appeal."
+        }
+      }
+    }
+  },
+  "$defs": {
+    "Endpoint": {
+      "type": "object",
+      "required": ["method", "path", "auth"],
+      "additionalProperties": false,
+      "properties": {
+        "method": { "type": "string", "enum": ["GET", "POST", "PUT", "DELETE"] },
+        "path": {
+          "type": "string",
+          "description": "Either a relative path (joined with `api.base`) or an absolute URL (e.g. for the catalog index, which lives on a separate host)."
+        },
+        "auth": {
+          "type": "string",
+          "enum": ["none", "bearer"],
+          "description": "Whether the endpoint requires a publisher token."
+        },
+        "requestSchemaRef": {
+          "type": "string",
+          "description": "Optional URL of a JSON Schema describing the POST body, for agents that want to validate before sending."
+        },
+        "responseSchemaRef": {
+          "type": "string",
+          "description": "Optional URL of a JSON Schema describing the response. The validate endpoint's response is gate-result.schema.json; the publish endpoint's is a submission stub."
+        }
+      }
+    }
+  }
+}

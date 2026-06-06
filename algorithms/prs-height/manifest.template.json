@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "2",
+  "id": "druidalabs/prs-height",
+  "version": "0.1.0",
+  "name": "Height polygenic score",
+  "blurb": "Sums the weighted contribution of common height-associated variants into a single z-score-like estimate.",
+  "license": "Apache-2.0",
+  "category": "research",
+  "tier": "pyodide",
+  "entrypoint": {
+    "module": "prs_height.main",
+    "function": "compute"
+  },
+  "lockfile": {
+    "interpreter": { "name": "pyodide", "version": "0.26.2" },
+    "dependencies": []
+  },
+  "capabilities": {
+    "network": false,
+    "fsRead": ["/input"],
+    "fsWrite": ["/output"],
+    "progress": false
+  },
+  "input": {
+    "schemaRef": "genomic-io.schema.json#/$defs/VariantSet",
+    "referenceBuild": "GRCh38"
+  },
+  "output": {
+    "schemaRef": "result.schema.json#/$defs/Result"
+  },
+  "supportedKinds": ["23andme", "ancestry", "myheritage", "vcf", "vcf-gz"],
+  "requirements": {
+    "memoryMiB": 128,
+    "wallSeconds": 10,
+    "diskMiB": 4
+  },
+  "publisher": {
+    "handle": "druidalabs",
+    "name": "Druid Labs",
+    "url": "https://commonsc.io",
+    "keyId": "druidalabs-2026-01"
+  },
+  "sourceUrl": "https://github.com/commonsc/algorithms/tree/main/prs-height"
+}

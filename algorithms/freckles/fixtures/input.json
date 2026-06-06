@@ -1,0 +1,13 @@
+{
+  "fileKind": "23andme",
+  "referenceBuild": "GRCh38",
+  "sampleId": "fixture-freckles",
+  "variants": [
+    {
+      "chrom": "1",
+      "genotype": "AA",
+      "position": 1,
+      "rsid": "rs1042602"
+    }
+  ]
+}

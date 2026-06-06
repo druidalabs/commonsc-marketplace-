@@ -1,0 +1,105 @@
+{
+  "schemaVersion": "1",
+  "platform": {
+    "name": "CommonSense Marketplace",
+    "url": "https://commonsc.io",
+    "lastUpdated": "2026-06-07",
+    "status": "https://status.commonsc.io"
+  },
+  "schemas": {
+    "manifest": "https://api.commonsc.io/schemas/manifest.schema.json",
+    "genomicIo": "https://api.commonsc.io/schemas/genomic-io.schema.json",
+    "result": "https://api.commonsc.io/schemas/result.schema.json",
+    "gateResult": "https://api.commonsc.io/schemas/gate-result.schema.json",
+    "discovery": "https://api.commonsc.io/schemas/discovery.schema.json"
+  },
+  "tiers": [
+    {
+      "id": "pyodide",
+      "available": true,
+      "interpreter": { "name": "pyodide", "version": "0.26.2" },
+      "constraints": {
+        "memoryMiBMax": 512,
+        "wallSecondsMax": 30,
+        "diskMiBMax": 64,
+        "networkAllowed": false,
+        "subprocessAllowed": false,
+        "fsReadAllowlist": ["/input"],
+        "fsWriteAllowlist": ["/output"]
+      }
+    },
+    {
+      "id": "webr",
+      "available": false,
+      "etaIsoMonth": "2027-01"
+    },
+    {
+      "id": "container",
+      "available": false,
+      "etaIsoMonth": "2027-Q2"
+    }
+  ],
+  "api": {
+    "base": "https://api.commonsc.io",
+    "endpoints": {
+      "publisherRegister": {
+        "method": "POST",
+        "path": "/publisher/register",
+        "auth": "none",
+        "responseSchemaRef": "https://api.commonsc.io/schemas/api/publisher-register.response.schema.json"
+      },
+      "algorithmsInit": {
+        "method": "POST",
+        "path": "/algorithms/init",
+        "auth": "bearer"
+      },
+      "algorithmsValidate": {
+        "method": "POST",
+        "path": "/algorithms/validate",
+        "auth": "bearer",
+        "responseSchemaRef": "https://api.commonsc.io/schemas/gate-result.schema.json"
+      },
+      "algorithmsPublish": {
+        "method": "POST",
+        "path": "/algorithms/publish",
+        "auth": "bearer"
+      },
+      "algorithmsStatus": {
+        "method": "GET",
+        "path": "/algorithms/{submissionId}/status",
+        "auth": "bearer"
+      },
+      "catalogIndex": {
+        "method": "GET",
+        "path": "https://api.commonsc.io/registry/index.json",
+        "auth": "none"
+      }
+    },
+    "rateLimits": {
+      "publisherRegister": "5 / hour / IP",
+      "algorithmsValidate": "60 / hour / publisher",
+      "algorithmsPublish": "10 / day / publisher",
+      "algorithmsStatus": "120 / hour / publisher"
+    }
+  },
+  "authentication": {
+    "scheme": "ed25519-keypair",
+    "registration": "https://commonsc.io/publisher/register",
+    "tokenForm": "JWT signed with publisher private key, 1h TTL, iss=keyId, aud=api.commonsc.io"
+  },
+  "fixtures": {
+    "syntheticVariantSet23andme": "https://api.commonsc.io/fixtures/synthetic-23andme.json",
+    "syntheticVariantSetAncestry": "https://api.commonsc.io/fixtures/synthetic-ancestry.json",
+    "syntheticVariantSetVcf": "https://api.commonsc.io/fixtures/synthetic-vcf.json"
+  },
+  "docs": {
+    "humanGuide": "https://commonsc.io/contribute",
+    "machineGuide": "https://commonsc.io/llms.txt",
+    "examples": "https://github.com/commonsc/algorithms"
+  },
+  "review": {
+    "queue": "human-in-the-loop",
+    "slaHours": 48,
+    "policy": "https://commonsc.io/review-policy"
+  }
+}

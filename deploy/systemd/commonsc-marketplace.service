@@ -1,0 +1,55 @@
+## /etc/systemd/system/commonsc-marketplace.service
+##
+## Runs the marketplace HTTP server as a non-root user, restarted automatically
+## on failure. Workspace lives at /srv/commonsc/ — pulled from GitHub by the
+## deploy script.
+
+[Unit]
+Description=CommonSense marketplace HTTP server
+Documentation=https://github.com/commonsc/commonsc
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=commonsc
+Group=commonsc
+WorkingDirectory=/srv/commonsc
+
+# The marketplace binary listens on localhost only; nginx is the only thing
+# that talks to it from the outside. We pin the workspace so the binary
+# finds discovery/, product/schemas/, and registry/ at predictable paths.
+ExecStart=/srv/commonsc/target/release/commonsc-marketplace \
+    --port 8787 \
+    --workspace /srv/commonsc
+
+# Graceful restart on file/signal handling we already wired in main().
+Restart=on-failure
+RestartSec=2s
+
+# Standard hardening — read-only system, writable submissions dir, no new
+# privileges. The marketplace only ever writes to <workspace>/submissions/.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/commonsc/submissions
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+# Logging goes to journald — `journalctl -u commonsc-marketplace` shows it.
+StandardOutput=journal
+StandardError=journal
+
+# Modest resource caps so a runaway publish handler can't take down the box.
+LimitNOFILE=4096
+MemoryMax=512M
+
+# Read RUST_LOG / etc. from a drop-in if you want to tweak verbosity.
+EnvironmentFile=-/etc/default/commonsc-marketplace
+
+[Install]
+WantedBy=multi-user.target

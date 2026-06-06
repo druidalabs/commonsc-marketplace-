@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "1",
+  "bundleSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "runAt": 1780000000000,
+  "runtime": { "kind": "devkit", "version": "0.1.0" },
+  "outcome": "fail",
+  "gates": {
+    "runtimeCompat": {
+      "status": "pass",
+      "durationMs": 1842,
+      "checks": [
+        { "id": "interpreter-resolves", "title": "Pyodide 0.26.2 available", "status": "pass" },
+        { "id": "imports-resolve",      "title": "All declared dependencies load", "status": "pass" },
+        { "id": "memory-budget",        "title": "Peak memory within declared budget", "status": "pass" }
+      ]
+    },
+    "contractConformance": {
+      "status": "fail",
+      "durationMs": 932,
+      "checks": [
+        {
+          "id": "output-schema-valid",
+          "title": "Output validates against result.schema.json",
+          "status": "fail",
+          "evidence": "blocks[0].kind = 'bar-chart' is not one of [rows, score, table, distribution, callout]",
+          "remediation": {
+            "humanText": "Block kind 'bar-chart' is not part of the result envelope. Use a `distribution` block for binned data, or a `table` block for ordered categories.",
+            "action": "match-output-schema",
+            "params": { "path": "blocks[0].kind", "allowed": ["rows", "score", "table", "distribution", "callout"] }
+          }
+        }
+      ]
+    },
+    "privacyNoEgress": {
+      "status": "pass",
+      "durationMs": 2104,
+      "checks": [
+        { "id": "no-socket-create",   "title": "No socket() observed",      "status": "pass" },
+        { "id": "no-dns-resolve",     "title": "No DNS lookup observed",    "status": "pass" },
+        { "id": "fs-scope-respected", "title": "FS access stayed inside /input + /output", "status": "pass" }
+      ]
+    },
+    "determinism": {
+      "status": "warn",
+      "durationMs": 3208,
+      "checks": [
+        {
+          "id": "byte-identical-rerun",
+          "title": "Two runs of fixture-A produced identical bytes",
+          "status": "warn",
+          "evidence": "blocks[1].rows ordering differed between runs (dict iteration order)",
+          "remediation": {
+            "humanText": "Sort the contributor rows before returning. Python dict iteration order is insertion-stable but the upstream variant store does not guarantee a consistent insertion order across runs.",
+            "action": "seed-randomness",
+            "params": { "hint": "sort blocks[].rows by a stable key before returning" }
+          }
+        }
+      ]
+    }
+  },
+  "humanReviewRequired": false
+}
