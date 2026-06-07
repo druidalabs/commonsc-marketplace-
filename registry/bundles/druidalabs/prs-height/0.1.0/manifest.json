@@ -1,0 +1,75 @@
+{
+  "artifact": {
+    "mediaType": "application/vnd.commonsc.pyodide-bundle.tar+zstd",
+    "sha256": "48fc8dd13591a4b7f8180acae333f67526b3fdf921ce7a4fca36286d9d3657cc",
+    "size": 2546
+  },
+  "blurb": "Sums the weighted contribution of common height-associated variants into a single z-score-like estimate.",
+  "capabilities": {
+    "fsRead": [
+      "/input"
+    ],
+    "fsWrite": [
+      "/output"
+    ],
+    "network": false,
+    "progress": false
+  },
+  "category": "research",
+  "checksum": "eebc1a8d3c1a1ea232e3eaae5b8bc7c50fba6319bffda7e61a5b967b37ad6637",
+  "entrypoint": {
+    "function": "compute",
+    "module": "prs_height.main"
+  },
+  "id": "druidalabs/prs-height",
+  "input": {
+    "referenceBuild": "GRCh38",
+    "schemaRef": "genomic-io.schema.json#/$defs/VariantSet"
+  },
+  "license": "Apache-2.0",
+  "lockfile": {
+    "dependencies": [],
+    "interpreter": {
+      "name": "pyodide",
+      "version": "0.26.2"
+    }
+  },
+  "name": "Height polygenic score",
+  "output": {
+    "schemaRef": "result.schema.json#/$defs/Result"
+  },
+  "publisher": {
+    "handle": "druidalabs",
+    "keyId": "druidalabs-2026-01",
+    "name": "Druid Labs",
+    "url": "https://commonsc.io"
+  },
+  "requirements": {
+    "diskMiB": 4,
+    "memoryMiB": 128,
+    "wallSeconds": 10
+  },
+  "schemaVersion": "2",
+  "signatures": {
+    "marketplace": {
+      "alg": "ed25519",
+      "keyId": "commonsc-marketplace-2026-01",
+      "value": "JfWdfkk5Vxa3kjuzvSKkkt+jPG3JUW5cEto3vfS6vfcNfu+ZxAWS2MUJsxh6g+PJ6u+CvKbxjYM9pbsoo0tfBQ=="
+    },
+    "publisher": {
+      "alg": "ed25519",
+      "keyId": "druidalabs-2026-01",
+      "value": "jlPXV+38EX6BjFeVgdNSCtX8RkmXf17hVLN77ZDN+RD4EfxCsPseTDZDijTU6s0u7odSCGNzFGmOARNeD5EyCg=="
+    }
+  },
+  "sourceUrl": "https://github.com/commonsc/algorithms/tree/main/prs-height",
+  "supportedKinds": [
+    "23andme",
+    "ancestry",
+    "myheritage",
+    "vcf",
+    "vcf-gz"
+  ],
+  "tier": "pyodide",
+  "version": "0.1.0"
+}

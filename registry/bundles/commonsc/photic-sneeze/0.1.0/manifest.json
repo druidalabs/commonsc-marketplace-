@@ -1,0 +1,75 @@
+{
+  "artifact": {
+    "mediaType": "application/vnd.commonsc.pyodide-bundle.tar+zstd",
+    "sha256": "9e027762ec7f527b469c3ae6b318d6983cac6d2eabf5a538c4993e19e2520554",
+    "size": 1420
+  },
+  "blurb": "Do you sneeze when you step into bright sunlight? rs10427255 near TRPV1 raises the odds you do.",
+  "capabilities": {
+    "fsRead": [
+      "/input"
+    ],
+    "fsWrite": [
+      "/output"
+    ],
+    "network": false,
+    "progress": false
+  },
+  "category": "trait",
+  "checksum": "32af70f684bc2959c73ffb749ba8f7962693dbcb2d9dba7329088d45fc456df1",
+  "entrypoint": {
+    "function": "compute",
+    "module": "photic_sneeze.main"
+  },
+  "id": "commonsc/photic-sneeze",
+  "input": {
+    "referenceBuild": "GRCh38",
+    "schemaRef": "genomic-io.schema.json#/$defs/VariantSet"
+  },
+  "license": "Apache-2.0",
+  "lockfile": {
+    "dependencies": [],
+    "interpreter": {
+      "name": "pyodide",
+      "version": "0.26.2"
+    }
+  },
+  "name": "Photic sneeze reflex",
+  "output": {
+    "schemaRef": "result.schema.json#/$defs/Result"
+  },
+  "publisher": {
+    "handle": "commonsc",
+    "keyId": "commonsc-2026-01",
+    "name": "CommonSense Reference",
+    "url": "https://commonsc.io"
+  },
+  "requirements": {
+    "diskMiB": 4,
+    "memoryMiB": 128,
+    "wallSeconds": 10
+  },
+  "schemaVersion": "2",
+  "signatures": {
+    "marketplace": {
+      "alg": "ed25519",
+      "keyId": "commonsc-marketplace-2026-01",
+      "value": "qO3xqR0purVRzAEE1pT+lxgPA+QpNDZqQ475n5Pv7ywcWFWpfT2CHfa+a5S8PcpQsdgr14vA6vC0jYr+XaF3AA=="
+    },
+    "publisher": {
+      "alg": "ed25519",
+      "keyId": "commonsc-2026-01",
+      "value": "oo/cyTacyzcBJzWZSSyjf+hJeSTuZvlKQ2L7x+QHWoQ/41ucQ3TS6r/Jho2PXdd2Ki1ODhPcy1hlc2hcfPoJCw=="
+    }
+  },
+  "sourceUrl": "https://github.com/commonsc/algorithms/tree/main/photic_sneeze",
+  "supportedKinds": [
+    "23andme",
+    "ancestry",
+    "myheritage",
+    "vcf",
+    "vcf-gz"
+  ],
+  "tier": "pyodide",
+  "version": "0.1.0"
+}

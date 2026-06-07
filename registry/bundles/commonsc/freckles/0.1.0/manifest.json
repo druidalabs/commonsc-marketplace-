@@ -1,0 +1,75 @@
+{
+  "artifact": {
+    "mediaType": "application/vnd.commonsc.pyodide-bundle.tar+zstd",
+    "sha256": "6c453c84b332ee905ef99302218185da2b21e8bb2d5405fcf0594cfc87e8f75a",
+    "size": 1405
+  },
+  "blurb": "Likelihood of developing freckles from sun exposure. rs1042602 in TYR modulates melanin in skin.",
+  "capabilities": {
+    "fsRead": [
+      "/input"
+    ],
+    "fsWrite": [
+      "/output"
+    ],
+    "network": false,
+    "progress": false
+  },
+  "category": "trait",
+  "checksum": "86ba5842e3f0f53b41195b24b882d01fe406d266dda55a5607f023aeeb97f91d",
+  "entrypoint": {
+    "function": "compute",
+    "module": "freckles.main"
+  },
+  "id": "commonsc/freckles",
+  "input": {
+    "referenceBuild": "GRCh38",
+    "schemaRef": "genomic-io.schema.json#/$defs/VariantSet"
+  },
+  "license": "Apache-2.0",
+  "lockfile": {
+    "dependencies": [],
+    "interpreter": {
+      "name": "pyodide",
+      "version": "0.26.2"
+    }
+  },
+  "name": "Freckle tendency",
+  "output": {
+    "schemaRef": "result.schema.json#/$defs/Result"
+  },
+  "publisher": {
+    "handle": "commonsc",
+    "keyId": "commonsc-2026-01",
+    "name": "CommonSense Reference",
+    "url": "https://commonsc.io"
+  },
+  "requirements": {
+    "diskMiB": 4,
+    "memoryMiB": 128,
+    "wallSeconds": 10
+  },
+  "schemaVersion": "2",
+  "signatures": {
+    "marketplace": {
+      "alg": "ed25519",
+      "keyId": "commonsc-marketplace-2026-01",
+      "value": "ZBVaGc0DqoDNB9lKOZprW9HU8NE2yeUVFf+GF/Chy13i2o1ykYFzPYUA8hODB4Fy74AMYguByPAAdsKP76rOBQ=="
+    },
+    "publisher": {
+      "alg": "ed25519",
+      "keyId": "commonsc-2026-01",
+      "value": "Wpe5g7dO0tEcTkVQC5qoPDO+Y8RY2kEa9RlPYq7uc9/yacdtw6DXnB65ZyYEwtSHdZ1QvoTRa5IE+Vl/TPBKBw=="
+    }
+  },
+  "sourceUrl": "https://github.com/commonsc/algorithms/tree/main/freckles",
+  "supportedKinds": [
+    "23andme",
+    "ancestry",
+    "myheritage",
+    "vcf",
+    "vcf-gz"
+  ],
+  "tier": "pyodide",
+  "version": "0.1.0"
+}

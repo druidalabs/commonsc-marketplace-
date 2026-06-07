@@ -1,0 +1,75 @@
+{
+  "artifact": {
+    "mediaType": "application/vnd.commonsc.pyodide-bundle.tar+zstd",
+    "sha256": "e66e8361ed4ee2bb36171dd089c51cad0f517bb6f1191a54796f7d4d11d7a5ec",
+    "size": 1417
+  },
+  "blurb": "Blue, brown, or hazel? rs12913832 in the HERC2/OCA2 region drives most of the variation in iris colour among Europeans.",
+  "capabilities": {
+    "fsRead": [
+      "/input"
+    ],
+    "fsWrite": [
+      "/output"
+    ],
+    "network": false,
+    "progress": false
+  },
+  "category": "trait",
+  "checksum": "1e3b8277a592b13e541e0d14d83b3caa148b118442278348f040a229df736e34",
+  "entrypoint": {
+    "function": "compute",
+    "module": "eye_colour.main"
+  },
+  "id": "commonsc/eye-colour",
+  "input": {
+    "referenceBuild": "GRCh38",
+    "schemaRef": "genomic-io.schema.json#/$defs/VariantSet"
+  },
+  "license": "Apache-2.0",
+  "lockfile": {
+    "dependencies": [],
+    "interpreter": {
+      "name": "pyodide",
+      "version": "0.26.2"
+    }
+  },
+  "name": "Eye colour",
+  "output": {
+    "schemaRef": "result.schema.json#/$defs/Result"
+  },
+  "publisher": {
+    "handle": "commonsc",
+    "keyId": "commonsc-2026-01",
+    "name": "CommonSense Reference",
+    "url": "https://commonsc.io"
+  },
+  "requirements": {
+    "diskMiB": 4,
+    "memoryMiB": 128,
+    "wallSeconds": 10
+  },
+  "schemaVersion": "2",
+  "signatures": {
+    "marketplace": {
+      "alg": "ed25519",
+      "keyId": "commonsc-marketplace-2026-01",
+      "value": "hbS5UcUHV94cfqPcJRFmqb1jKFPNxS0Gocv4/TPqTe3i3zjCZYhmJyaTlrbeqtJbizToSvPPt8dLppJ4BGC/CQ=="
+    },
+    "publisher": {
+      "alg": "ed25519",
+      "keyId": "commonsc-2026-01",
+      "value": "73pPLw4QPODIoz6YBthq80mgMgkW5NJ/GaHhXySDAoE7+rCspc+ExuWpMWoFRPzk3rLOTEQ8nvCb1eAK2H/PAg=="
+    }
+  },
+  "sourceUrl": "https://github.com/commonsc/algorithms/tree/main/eye_colour",
+  "supportedKinds": [
+    "23andme",
+    "ancestry",
+    "myheritage",
+    "vcf",
+    "vcf-gz"
+  ],
+  "tier": "pyodide",
+  "version": "0.1.0"
+}

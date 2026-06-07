@@ -1,0 +1,75 @@
+{
+  "artifact": {
+    "mediaType": "application/vnd.commonsc.pyodide-bundle.tar+zstd",
+    "sha256": "c0cfe29047af354a361806a0e1c47ed777cf0f89c364917399c8b686693fed2f",
+    "size": 1342
+  },
+  "blurb": "Wet or dry earwax? rs17822931 in ABCC11 — the classic worldwide-variable trait.",
+  "capabilities": {
+    "fsRead": [
+      "/input"
+    ],
+    "fsWrite": [
+      "/output"
+    ],
+    "network": false,
+    "progress": false
+  },
+  "category": "trait",
+  "checksum": "d5fda97304c14d68da98a09294a8847ac6dd650eb4c4eb5cb89310fef9b0bc3d",
+  "entrypoint": {
+    "function": "compute",
+    "module": "earwax_type.main"
+  },
+  "id": "commonsc/earwax-type",
+  "input": {
+    "referenceBuild": "GRCh38",
+    "schemaRef": "genomic-io.schema.json#/$defs/VariantSet"
+  },
+  "license": "Apache-2.0",
+  "lockfile": {
+    "dependencies": [],
+    "interpreter": {
+      "name": "pyodide",
+      "version": "0.26.2"
+    }
+  },
+  "name": "Earwax type",
+  "output": {
+    "schemaRef": "result.schema.json#/$defs/Result"
+  },
+  "publisher": {
+    "handle": "commonsc",
+    "keyId": "commonsc-2026-01",
+    "name": "CommonSense Reference",
+    "url": "https://commonsc.io"
+  },
+  "requirements": {
+    "diskMiB": 4,
+    "memoryMiB": 128,
+    "wallSeconds": 10
+  },
+  "schemaVersion": "2",
+  "signatures": {
+    "marketplace": {
+      "alg": "ed25519",
+      "keyId": "commonsc-marketplace-2026-01",
+      "value": "DEaIMjLScSlWB2oNEZaPT1AhfLd0EkAPCODjP1q1tUSS9Yrk8Pa7FVZacASxLTJP8Hkl40H8+/6X5YMc/hxbBQ=="
+    },
+    "publisher": {
+      "alg": "ed25519",
+      "keyId": "commonsc-2026-01",
+      "value": "+VhSs/DkXQHTtam6oMc18dt4EQr1d8UwUacxNSoqGlY/6oGfLVNQtWRvsYldTa1bS+ksDqwIxfbAYIBszwNnBA=="
+    }
+  },
+  "sourceUrl": "https://github.com/commonsc/algorithms/tree/main/earwax_type",
+  "supportedKinds": [
+    "23andme",
+    "ancestry",
+    "myheritage",
+    "vcf",
+    "vcf-gz"
+  ],
+  "tier": "pyodide",
+  "version": "0.1.0"
+}
