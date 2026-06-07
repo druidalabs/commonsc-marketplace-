@@ -32,6 +32,8 @@ use tower_http::cors::{Any, CorsLayer};
 use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
 
+mod admin;
+
 #[derive(Parser)]
 #[command(name = "commonsc-marketplace", about = "CommonSense marketplace HTTP server")]
 struct Cli {
@@ -48,9 +50,9 @@ struct Cli {
 /// Shared state passed to every handler. Only the submissions write needs
 /// synchronisation; the rest of the layout is read-only.
 #[derive(Clone)]
-struct AppState {
-    workspace: PathBuf,
-    submissions_lock: Arc<Mutex<()>>,
+pub(crate) struct AppState {
+    pub(crate) workspace: PathBuf,
+    pub(crate) submissions_lock: Arc<Mutex<()>>,
 }
 
 #[tokio::main]
@@ -92,6 +94,11 @@ async fn main() -> Result<()> {
         .route("/algorithms/validate", post(validate_handler))
         .route("/algorithms/publish", post(publish_handler))
         .route("/algorithms/:submission_id/status", get(status_handler))
+        .route("/admin", get(|| async { axum::response::Redirect::to("/admin/") }))
+        .route("/admin/", get(admin::index))
+        .route("/admin/submissions/:submission_id", get(admin::detail))
+        .route("/admin/submissions/:submission_id/approve", post(admin::approve))
+        .route("/admin/submissions/:submission_id/reject", post(admin::reject))
         .nest_service(
             "/.well-known",
             ServeDir::new(discovery_dir.join(".well-known")),
@@ -352,7 +359,7 @@ async fn extract_project_and_archive(
 /// a single top-level directory (the common `tar -cf foo.tar dir/` shape).
 /// Anything else (no template, or template buried deeper than one level) is
 /// a malformed upload.
-fn locate_project_root(extracted: &Path) -> std::result::Result<PathBuf, ApiError> {
+pub(crate) fn locate_project_root(extracted: &Path) -> std::result::Result<PathBuf, ApiError> {
     if extracted.join("manifest.template.json").is_file() {
         return Ok(extracted.to_path_buf());
     }
@@ -375,7 +382,7 @@ fn locate_project_root(extracted: &Path) -> std::result::Result<PathBuf, ApiErro
     ))
 }
 
-fn unpack_tar_zst(bytes: &[u8], dest: &Path) -> std::result::Result<(), String> {
+pub(crate) fn unpack_tar_zst(bytes: &[u8], dest: &Path) -> std::result::Result<(), String> {
     let decompressed =
         zstd::stream::decode_all(bytes).map_err(|e| format!("zstd decode: {e}"))?;
     let mut archive = tar::Archive::new(decompressed.as_slice());
@@ -385,7 +392,7 @@ fn unpack_tar_zst(bytes: &[u8], dest: &Path) -> std::result::Result<(), String> 
     Ok(())
 }
 
-fn report_to_json(report: &commonsc_devkit::validate::Report) -> Value {
+pub(crate) fn report_to_json(report: &commonsc_devkit::validate::Report) -> Value {
     let checks: Vec<Value> = report
         .checks
         .iter()
@@ -444,9 +451,9 @@ fn is_safe_id(s: &str) -> bool {
 // ── API error type ────────────────────────────────────────────────────────
 
 #[derive(Debug)]
-struct ApiError {
-    status: StatusCode,
-    message: String,
+pub(crate) struct ApiError {
+    pub(crate) status: StatusCode,
+    pub(crate) message: String,
 }
 
 impl ApiError {
