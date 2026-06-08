@@ -9,5 +9,6 @@ pub mod canonical;
 pub mod init;
 pub mod manifest;
 pub mod publish;
+pub mod register;
 pub mod signing;
 pub mod validate;

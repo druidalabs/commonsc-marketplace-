@@ -91,6 +91,7 @@ async fn main() -> Result<()> {
     let app = Router::new()
         .route("/", get(root_index))
         .route("/health", get(|| async { "ok" }))
+        .route("/publisher/register", post(publisher_register))
         .route("/algorithms/validate", post(validate_handler))
         .route("/algorithms/publish", post(publish_handler))
         .route("/algorithms/:submission_id/status", get(status_handler))
@@ -173,6 +174,7 @@ fn print_routes() {
     tracing::info!("  GET  /llms.txt                        LLM-facing companion");
     tracing::info!("  GET  /schemas/<name>.schema.json      JSON schemas");
     tracing::info!("  GET  /registry/index.json             algorithm catalog");
+    tracing::info!("  POST /publisher/register              register a new publisher (returns keyId)");
     tracing::info!("  POST /algorithms/validate             run canonical gates, return gate-result");
     tracing::info!("  POST /algorithms/publish              queue a submission for review");
     tracing::info!("  GET  /algorithms/:id/status           submission status");
@@ -181,6 +183,117 @@ fn print_routes() {
 async fn shutdown_signal() {
     let _ = tokio::signal::ctrl_c().await;
     tracing::info!("shutdown signal received");
+}
+
+// ── Publisher register ────────────────────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+struct RegisterRequest {
+    /// Human-readable display name shown in the catalog. 1-80 chars.
+    name: String,
+    /// Email, URL, or other contact handle. 1-200 chars.
+    contact: String,
+    /// Publisher's ed25519 public key, base64 (standard alphabet). Exactly 32 bytes decoded.
+    pubkey: String,
+    /// Requested namespace. Lowercase kebab-case, 1-40 chars. If absent we
+    /// derive one from `name`.
+    handle: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct RegisterResponse {
+    handle: String,
+    #[serde(rename = "keyId")]
+    key_id: String,
+}
+
+async fn publisher_register(
+    State(state): State<AppState>,
+    axum::Json(req): axum::Json<RegisterRequest>,
+) -> Result<Json<RegisterResponse>, ApiError> {
+    // Field validation. Bound everything tightly so we don't accept absurd
+    // payloads that bloat the publishers/ directory.
+    if req.name.is_empty() || req.name.len() > 80 {
+        return Err(ApiError::client("name must be 1-80 chars".into()));
+    }
+    if req.contact.is_empty() || req.contact.len() > 200 {
+        return Err(ApiError::client("contact must be 1-200 chars".into()));
+    }
+
+    use base64::Engine as _;
+    let pubkey_bytes = base64::engine::general_purpose::STANDARD
+        .decode(req.pubkey.trim())
+        .map_err(|e| ApiError::client(format!("pubkey base64 decode failed: {e}")))?;
+    if pubkey_bytes.len() != 32 {
+        return Err(ApiError::client(format!(
+            "pubkey must be exactly 32 bytes when decoded (got {})",
+            pubkey_bytes.len()
+        )));
+    }
+
+    let handle = req.handle.unwrap_or_else(|| slugify_handle(&req.name));
+    if !is_valid_handle(&handle) {
+        return Err(ApiError::client(format!(
+            "invalid handle `{handle}`; expected lowercase kebab-case, 1-40 chars"
+        )));
+    }
+
+    let publishers_dir = state.workspace.join("publishers");
+    std::fs::create_dir_all(&publishers_dir).map_err(|e| ApiError::server(e.to_string()))?;
+    let publisher_file = publishers_dir.join(format!("{handle}.json"));
+    if publisher_file.exists() {
+        return Err(ApiError::client(format!(
+            "handle `{handle}` is already registered. Pick a different one with --handle."
+        )));
+    }
+
+    let key_id = format!("{handle}-2026-01");
+    let record = json!({
+        "handle": handle,
+        "name": req.name,
+        "contact": req.contact,
+        "pubkey": req.pubkey,
+        "keyId": key_id,
+        "registeredAt": now_millis(),
+    });
+    let body = serde_json::to_string_pretty(&record)
+        .map_err(|e| ApiError::server(e.to_string()))?
+        + "\n";
+    {
+        let _guard = state.submissions_lock.lock().await;
+        std::fs::write(&publisher_file, body).map_err(|e| ApiError::server(e.to_string()))?;
+    }
+
+    Ok(Json(RegisterResponse { handle, key_id }))
+}
+
+fn slugify_handle(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut last_dash = true;
+    for c in s.chars() {
+        let lower = c.to_ascii_lowercase();
+        if lower.is_ascii_lowercase() || lower.is_ascii_digit() {
+            out.push(lower);
+            last_dash = false;
+        } else if !last_dash {
+            out.push('-');
+            last_dash = true;
+        }
+    }
+    out.trim_matches('-').chars().take(40).collect()
+}
+
+fn is_valid_handle(s: &str) -> bool {
+    if s.is_empty() || s.len() > 40 {
+        return false;
+    }
+    let bytes = s.as_bytes();
+    if !(bytes[0].is_ascii_lowercase() || bytes[0].is_ascii_digit()) {
+        return false;
+    }
+    bytes
+        .iter()
+        .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || *b == b'-')
 }
 
 // ── Validate ──────────────────────────────────────────────────────────────

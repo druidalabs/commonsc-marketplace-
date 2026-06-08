@@ -32,3 +32,5 @@ jsonschema = { version = "0.18", features = ["draft202012"] }
 url = "2"
 hex = "0.4"
 base64 = "0.22"
+ureq = { version = "2", features = ["json"] }
+dirs = "5"

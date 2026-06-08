@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 
-use commonsc_devkit::{init, publish, validate};
+use commonsc_devkit::{init, publish, register, validate};
 
 // Module implementations live under `src/lib.rs` so the marketplace HTTP
 // service can call the same validate/publish gate code without duplicating it.
@@ -48,6 +48,32 @@ enum Cmd {
         #[arg(long, default_value = "CommonSense Reference")]
         publisher_name: String,
     },
+    /// Register as a publisher with the marketplace. Generates an ed25519
+    /// keypair locally, POSTs the public key to /publisher/register, stores
+    /// the credentials (with the private key, chmod 0600) under
+    /// `~/.commonsc/credentials.json` for future publishes.
+    Register {
+        /// Human-readable display name shown alongside your published items.
+        #[arg(long)]
+        name: String,
+        /// Email, URL, or other contact handle for users + reviewers.
+        #[arg(long)]
+        contact: String,
+        /// Desired publisher namespace (lowercase kebab-case). If absent we
+        /// derive one from `--name`.
+        #[arg(long)]
+        handle: Option<String>,
+        /// Marketplace base URL. Defaults to the production endpoint.
+        #[arg(long, default_value = "https://api.commonsc.io")]
+        api: String,
+        /// Override the credentials file path. Defaults to
+        /// `~/.commonsc/credentials.json`.
+        #[arg(long)]
+        config: Option<PathBuf>,
+        /// Overwrite existing credentials if a file is already there.
+        #[arg(long)]
+        force: bool,
+    },
     /// Validate an algorithm project: schema-check the manifest, smoke-test the
     /// fixture against the entrypoint's declared input/output schemas, and
     /// report any structured remediation needed before `publish` will accept.
@@ -89,6 +115,25 @@ fn main() -> Result<()> {
                 rsid,
                 publisher_handle,
                 publisher_name,
+            })?;
+            summary.print();
+            Ok(())
+        }
+        Cmd::Register {
+            name,
+            contact,
+            handle,
+            api,
+            config,
+            force,
+        } => {
+            let summary = register::run(register::RegisterOptions {
+                name,
+                contact,
+                handle,
+                api,
+                config,
+                force,
             })?;
             summary.print();
             Ok(())
