@@ -426,7 +426,17 @@ pub async fn approve(
                 entry.manifest.id, entry.manifest.version
             ))
         }
-        Err(e) => redirect_to_admin_with(&format!("publish failed: {e}")),
+        Err(e) => {
+            // Walk the anyhow source chain so the flash shows the underlying
+            // os error (e.g. "Permission denied") not just the context wrapper.
+            let mut chain = format!("publish failed: {e}");
+            let mut src: Option<&dyn std::error::Error> = e.source();
+            while let Some(s) = src {
+                chain.push_str(&format!(" — {s}"));
+                src = s.source();
+            }
+            redirect_to_admin_with(&chain)
+        }
     }
 }
 
