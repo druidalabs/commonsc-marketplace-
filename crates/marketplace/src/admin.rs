@@ -162,12 +162,21 @@ fn html_escape(s: &str) -> String {
 
 // ── Endpoints ─────────────────────────────────────────────────────────────
 
-pub async fn index(State(state): State<AppState>) -> Html<String> {
+pub async fn index(
+    State(state): State<AppState>,
+    flash: Option<axum::extract::Query<FlashParam>>,
+) -> Html<String> {
     let submissions = list_submissions(&state.workspace);
+    let flash_html = flash
+        .and_then(|q| q.0.flash)
+        .map(|f| format!(r#"<p class="flash">{}</p>"#, html_escape(&f)))
+        .unwrap_or_default();
     let body = if submissions.is_empty() {
-        r#"<h1>Submission queue</h1>
+        format!(
+            r#"<h1>Submission queue</h1>
+{flash_html}
 <div class="empty">No submissions yet. When a publisher POSTs to <code>/algorithms/publish</code>, it lands here.</div>"#
-            .to_string()
+        )
     } else {
         let rows: Vec<String> = submissions
             .iter()
@@ -191,6 +200,7 @@ pub async fn index(State(state): State<AppState>) -> Html<String> {
             .collect();
         format!(
             r#"<h1>Submission queue</h1>
+{flash_html}
 <table>
 <thead><tr>
   <th>Submission</th><th>Manifest</th><th>Version</th><th>Status</th><th>Submitted</th>
@@ -386,8 +396,12 @@ pub async fn approve(
 
     // Run the publish pipeline — bundles the project, signs with the dev
     // marketplace key, writes manifest.json + bundle.tar.zst into the
-    // registry, and appends the index entry.
-    let result = commonsc_devkit::publish::run(&project_root, None);
+    // registry, and appends the index entry. We pass the registry path
+    // explicitly because publish::run's auto-detect walks up from the project
+    // directory looking for a `commonsc/` folder — and the project is in a
+    // tempdir under /tmp, where that walk dead-ends.
+    let registry = state.workspace.join("registry");
+    let result = commonsc_devkit::publish::run(&project_root, Some(&registry));
     match result {
         Ok(entry) => {
             // Update the submission record's status to approved.
