@@ -8,6 +8,24 @@ use commonsc_devkit::{init, publish, register, validate};
 // Module implementations live under `src/lib.rs` so the marketplace HTTP
 // service can call the same validate/publish gate code without duplicating it.
 
+/// Resolve the API base URL for remote publish — explicit `--api` wins, then
+/// the saved credentials file's `api` field, then the production default.
+/// Surfaces a clear error if the credentials file is required but missing.
+fn resolve_remote_api(api: Option<&str>, config: Option<&std::path::Path>) -> Result<String> {
+    if let Some(a) = api {
+        return Ok(a.trim_end_matches('/').to_string());
+    }
+    match register::load(config)? {
+        Some(creds) => Ok(creds.api.trim_end_matches('/').to_string()),
+        None => {
+            // No credentials and no explicit --api. Default to production
+            // and let the user opt into a different target via the flag if
+            // they want.
+            Ok("https://api.commonsc.io".to_string())
+        }
+    }
+}
+
 #[derive(Parser)]
 #[command(name = "commonsc-devkit", version, about = "CommonSense contributor toolkit")]
 struct Cli {
@@ -82,12 +100,27 @@ enum Cmd {
         /// `manifest.template.json` and the entrypoint module).
         project: PathBuf,
     },
-    /// Bundle the project, sign with the dev publisher + marketplace keys,
-    /// and write the entry to the local registry at `commonsc/registry/`.
+    /// Bundle the project and either (a) write to a local registry, or (b)
+    /// upload to a live marketplace's review queue.
+    ///
+    /// Default is local. Pass `--remote` to upload. The remote URL comes from
+    /// `--api`, then your saved credentials at `~/.commonsc/credentials.json`,
+    /// then the production default `https://api.commonsc.io`.
     Publish {
         project: PathBuf,
-        /// Override the registry directory. Defaults to `<workspace>/registry/`
-        /// resolved from the directory layout.
+        /// Submit to a live marketplace instead of writing to a local registry.
+        #[arg(long)]
+        remote: bool,
+        /// API base URL for remote publish. Defaults to credentials.api, then
+        /// `https://api.commonsc.io`.
+        #[arg(long)]
+        api: Option<String>,
+        /// Credentials file path. Only consulted in remote mode. Defaults to
+        /// `~/.commonsc/credentials.json`.
+        #[arg(long)]
+        config: Option<PathBuf>,
+        /// Override the local registry directory (local mode only). Defaults to
+        /// `<workspace>/registry/`.
         #[arg(long)]
         registry: Option<PathBuf>,
     },
@@ -148,13 +181,27 @@ fn main() -> Result<()> {
             }
             Ok(())
         }
-        Cmd::Publish { project, registry } => {
-            let entry = publish::run(&project, registry.as_deref())
-                .with_context(|| format!("publish failed for {}", project.display()))?;
-            println!(
-                "published {}@{} → {}",
-                entry.manifest.id, entry.manifest.version, entry.registry_dir.display()
-            );
+        Cmd::Publish {
+            project,
+            remote,
+            api,
+            config,
+            registry,
+        } => {
+            if remote {
+                let api_url = resolve_remote_api(api.as_deref(), config.as_deref())?;
+                let submission = publish::run_remote(&project, &api_url)
+                    .with_context(|| format!("remote publish failed for {}", project.display()))?;
+                submission.print(&api_url);
+            } else {
+                let entry = publish::run(&project, registry.as_deref()).with_context(|| {
+                    format!("publish failed for {}", project.display())
+                })?;
+                println!(
+                    "published {}@{} → {}",
+                    entry.manifest.id, entry.manifest.version, entry.registry_dir.display()
+                );
+            }
             Ok(())
         }
     }

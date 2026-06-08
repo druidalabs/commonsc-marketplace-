@@ -16,7 +16,8 @@ use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use axum::{
-    extract::{Multipart, Path as AxumPath, State},
+    body::to_bytes,
+    extract::{FromRequest, Multipart, Path as AxumPath, Request, State},
     http::StatusCode,
     response::{IntoResponse, Json, Response},
     routing::{get, post},
@@ -298,8 +299,8 @@ fn is_valid_handle(s: &str) -> bool {
 
 // ── Validate ──────────────────────────────────────────────────────────────
 
-async fn validate_handler(mut multipart: Multipart) -> Result<Json<Value>, ApiError> {
-    let project_dir = extract_project_from_multipart(&mut multipart).await?;
+async fn validate_handler(req: Request) -> Result<Json<Value>, ApiError> {
+    let (_archive, project_dir) = extract_bundle(req).await?;
     let project_root = locate_project_root(project_dir.path())?;
     let report = commonsc_devkit::validate::run(&project_root)
         .map_err(|e| ApiError::server(format!("validate failed to run: {e}")))?;
@@ -332,9 +333,9 @@ enum SubmissionStatus {
 
 async fn publish_handler(
     State(state): State<AppState>,
-    mut multipart: Multipart,
+    req: Request,
 ) -> Result<Json<Value>, ApiError> {
-    let (project_dir, raw_archive) = extract_project_and_archive(&mut multipart).await?;
+    let (raw_archive, project_dir) = extract_bundle(req).await?;
     let project_root = locate_project_root(project_dir.path())?;
     let report = commonsc_devkit::validate::run(&project_root)
         .map_err(|e| ApiError::server(format!("validate failed to run: {e}")))?;
@@ -428,43 +429,70 @@ async fn status_handler(
     })))
 }
 
-// ── Multipart + bundle extraction ─────────────────────────────────────────
+// ── Bundle extraction (raw or multipart) ──────────────────────────────────
 
-/// Pull a single multipart field named `bundle` (tar.zst of the project) and
-/// unpack it into a fresh temp dir. Returns the dir so callers can pass its
-/// path to the gate code. The dir is cleaned up when the handle drops.
-async fn extract_project_from_multipart(multipart: &mut Multipart) -> Result<TempDir, ApiError> {
-    let (dir, _) = extract_project_and_archive(multipart).await?;
-    Ok(dir)
-}
+const MAX_BUNDLE_BYTES: usize = 32 * 1024 * 1024;
 
-/// Same as `extract_project_from_multipart`, but also returns the raw
-/// archive bytes so the publish path can persist them for later reviewer
-/// retrieval.
-async fn extract_project_and_archive(
-    multipart: &mut Multipart,
-) -> Result<(TempDir, Vec<u8>), ApiError> {
-    while let Some(field) = multipart
-        .next_field()
-        .await
-        .map_err(|e| ApiError::client(format!("invalid multipart upload: {e}")))?
-    {
-        let name = field.name().unwrap_or("").to_string();
-        if name != "bundle" {
-            continue;
-        }
-        let bytes = field
-            .bytes()
+/// Pull a tar.zst bundle off an incoming request. Supports two body shapes:
+///
+/// - **Raw** — `Content-Type: application/zstd` or `application/octet-stream`,
+///   body is the bundle bytes. Preferred for CLI/SDK uploads.
+/// - **Multipart** — `Content-Type: multipart/form-data`, single field named
+///   `bundle`. Backward-compatible with the original curl examples.
+///
+/// Returns the raw archive bytes (so the publish path can persist them) plus
+/// a TempDir holding the unpacked project. The TempDir is cleaned up when it
+/// drops, so callers must use it before returning.
+async fn extract_bundle(req: Request) -> Result<(Vec<u8>, TempDir), ApiError> {
+    let content_type = req
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_lowercase();
+
+    let bytes: Vec<u8> = if content_type.starts_with("multipart/form-data") {
+        let mut multipart = Multipart::from_request(req, &())
             .await
-            .map_err(|e| ApiError::client(format!("reading bundle field: {e}")))?
-            .to_vec();
-        let dir = TempDir::new().map_err(|e| ApiError::server(e.to_string()))?;
-        unpack_tar_zst(&bytes, dir.path()).map_err(|e| ApiError::client(e))?;
-        return Ok((dir, bytes));
+            .map_err(|e| ApiError::client(format!("invalid multipart upload: {e}")))?;
+        let mut found = None;
+        while let Some(field) = multipart
+            .next_field()
+            .await
+            .map_err(|e| ApiError::client(format!("reading multipart: {e}")))?
+        {
+            if field.name() == Some("bundle") {
+                let raw = field
+                    .bytes()
+                    .await
+                    .map_err(|e| ApiError::client(format!("reading bundle field: {e}")))?;
+                found = Some(raw.to_vec());
+                break;
+            }
+        }
+        found.ok_or_else(|| {
+            ApiError::client(
+                "multipart upload missing required `bundle` field (expect a tar.zst of the project)"
+                    .into(),
+            )
+        })?
+    } else {
+        // Raw body. We don't strictly require `application/zstd` because
+        // many CLI tools default to `application/octet-stream` for binary
+        // uploads; both decode the same way.
+        let body = req.into_body();
+        to_bytes(body, MAX_BUNDLE_BYTES)
+            .await
+            .map_err(|e| ApiError::client(format!("reading body: {e}")))?
+            .to_vec()
+    };
+
+    if bytes.is_empty() {
+        return Err(ApiError::client("request body was empty".into()));
     }
-    Err(ApiError::client(
-        "multipart upload missing required `bundle` field (expect a tar.zst of the project)".into(),
-    ))
+    let dir = TempDir::new().map_err(|e| ApiError::server(e.to_string()))?;
+    unpack_tar_zst(&bytes, dir.path()).map_err(ApiError::client)?;
+    Ok((bytes, dir))
 }
 
 /// Return the directory that actually holds `manifest.template.json`. We

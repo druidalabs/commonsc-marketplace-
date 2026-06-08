@@ -123,6 +123,125 @@ pub fn run(project: &Path, registry_override: Option<&Path>) -> Result<Entry> {
     })
 }
 
+// ── Remote publish (POST to a live marketplace) ─────────────────────────
+//
+// Bundles the project (same tar.zst content as the local publish), then
+// streams the bytes to `<api>/algorithms/publish` as a raw `application/zstd`
+// body. The server side validates the bundle, runs the canonical gates, and
+// queues the submission for human review. Approval (in the reviewer admin
+// UI) is what promotes it to the public catalog — same human gate as the
+// local-publish path, just one network hop further upstream.
+
+pub struct RemoteSubmission {
+    pub submission_id: String,
+    pub status: String,
+    pub manifest_id: String,
+    pub manifest_version: String,
+}
+
+impl RemoteSubmission {
+    pub fn print(&self, api: &str) {
+        println!("submitted {}@{} → {} ({})", self.manifest_id, self.manifest_version, self.submission_id, self.status);
+        println!("  status:  {}/algorithms/{}/status", api, self.submission_id);
+        println!("  review:  marketplace queue (human gate); the bundle becomes installable once approved.");
+    }
+}
+
+pub fn run_remote(project: &Path, api: &str) -> Result<RemoteSubmission> {
+    // Same validate-first guarantee as local publish — refuse to upload a
+    // bundle that won't pass our own gates. Cheap; saves the server cycles
+    // and the publisher embarrassment.
+    let report = crate::validate::run(project)?;
+    if report.outcome.is_fail() {
+        report.print();
+        return Err(anyhow!("validate failed; remote publish aborted"));
+    }
+
+    let manifest = crate::manifest::read_template(project)?;
+    let manifest_id = crate::manifest::id(&manifest)?.to_string();
+    let manifest_version = crate::manifest::version(&manifest)?.to_string();
+
+    // Remote publish wants the *project*, not the runtime bundle — the
+    // server-side validate needs the manifest template and the fixture to
+    // exercise the gates. The reviewer's eventual approve step builds the
+    // slimmer runtime bundle from this archive (same `build_artifact` used
+    // by local publish).
+    let archive = build_project_archive(project)?;
+    let url = format!("{}/algorithms/publish", api.trim_end_matches('/'));
+
+    println!(
+        "uploading {} bytes to {} …",
+        archive.len(),
+        url,
+    );
+
+    let response = ureq::post(&url)
+        .set("content-type", "application/zstd")
+        .set("accept", "application/json")
+        .set(
+            "user-agent",
+            concat!("commonsc-devkit/", env!("CARGO_PKG_VERSION")),
+        )
+        .send_bytes(&archive);
+
+    let body: Value = match response {
+        Ok(resp) => resp.into_json().context("decoding publish response")?,
+        Err(ureq::Error::Status(code, resp)) => {
+            let text = resp
+                .into_string()
+                .unwrap_or_else(|_| "<unreadable body>".to_string());
+            return Err(anyhow!("server returned HTTP {code}: {text}"));
+        }
+        Err(e) => return Err(anyhow!("network call to {url} failed: {e}")),
+    };
+
+    let status = body
+        .get("status")
+        .and_then(Value::as_str)
+        .unwrap_or("unknown")
+        .to_string();
+
+    if status == "validation-failed" {
+        // The server-side gates rejected it (shouldn't happen — local
+        // validate passed — but the gate code may have evolved server-side).
+        // Surface the structured remediation.
+        let gate = body
+            .get("gateResult")
+            .map(|v| serde_json::to_string_pretty(v).unwrap_or_default())
+            .unwrap_or_default();
+        return Err(anyhow!(
+            "server validation failed:\n{gate}\n(local validate passed — the server may have stricter gates; report the mismatch.)"
+        ));
+    }
+
+    let submission_id = body
+        .get("submissionId")
+        .and_then(Value::as_str)
+        .ok_or_else(|| anyhow!("server response missing `submissionId`: {body}"))?
+        .to_string();
+
+    Ok(RemoteSubmission {
+        submission_id,
+        status,
+        manifest_id,
+        manifest_version,
+    })
+}
+
+/// Tar.zst the *whole* project (manifest template + fixtures + README + code)
+/// for upload to a marketplace's validate/publish endpoint. Only OS cruft and
+/// build caches are excluded. Different from `build_artifact`, which strips
+/// dev-only files to produce the runtime bundle that lives in the registry.
+fn build_project_archive(project: &Path) -> Result<Vec<u8>> {
+    let raw_tar = build_tar_with_filter(project, |name| {
+        matches!(name, ".DS_Store" | "__pycache__" | ".git" | "target" | "node_modules")
+    })?;
+    let mut compressed = Vec::with_capacity(raw_tar.len() / 4);
+    zstd::stream::copy_encode(&raw_tar[..], &mut compressed, 19)
+        .context("zstd encode failed")?;
+    Ok(compressed)
+}
+
 fn build_artifact(project: &Path) -> Result<Vec<u8>> {
     let raw_tar = build_tar(project)?;
     let mut compressed = Vec::with_capacity(raw_tar.len() / 4);
@@ -132,10 +251,15 @@ fn build_artifact(project: &Path) -> Result<Vec<u8>> {
 }
 
 fn build_tar(project: &Path) -> Result<Vec<u8>> {
+    // Runtime-bundle exclude list — `is_excluded` strips dev-only files.
+    build_tar_with_filter(project, is_excluded)
+}
+
+fn build_tar_with_filter<F: Fn(&str) -> bool>(project: &Path, exclude: F) -> Result<Vec<u8>> {
     let mut tar = tar::Builder::new(Vec::<u8>::new());
     // Walk the project, deterministic order so the bundle hash is reproducible
     // across machines and runs.
-    let mut entries = collect_entries(project)?;
+    let mut entries = collect_entries_with_filter(project, &exclude)?;
     entries.sort();
     for relative in &entries {
         let abs = project.join(relative);
@@ -158,20 +282,33 @@ fn build_tar(project: &Path) -> Result<Vec<u8>> {
     tar.into_inner().context("finalizing tar")
 }
 
+#[allow(dead_code)]
 fn collect_entries(project: &Path) -> Result<Vec<PathBuf>> {
-    fn walk(root: &Path, dir: &Path, out: &mut Vec<PathBuf>) -> Result<()> {
+    collect_entries_with_filter(project, &is_excluded)
+}
+
+fn collect_entries_with_filter<F: Fn(&str) -> bool>(
+    project: &Path,
+    exclude: &F,
+) -> Result<Vec<PathBuf>> {
+    fn walk<F: Fn(&str) -> bool>(
+        root: &Path,
+        dir: &Path,
+        exclude: &F,
+        out: &mut Vec<PathBuf>,
+    ) -> Result<()> {
         for entry in fs::read_dir(dir)? {
             let entry = entry?;
             let name = entry.file_name();
             let name = name.to_string_lossy();
-            if is_excluded(&name) {
+            if exclude(&name) {
                 continue;
             }
             let abs = entry.path();
             let rel = abs.strip_prefix(root)?.to_path_buf();
             let ft = entry.file_type()?;
             if ft.is_dir() {
-                walk(root, &abs, out)?;
+                walk(root, &abs, exclude, out)?;
             } else if ft.is_file() {
                 out.push(rel);
             }
@@ -179,7 +316,7 @@ fn collect_entries(project: &Path) -> Result<Vec<PathBuf>> {
         Ok(())
     }
     let mut out = Vec::new();
-    walk(project, project, &mut out)?;
+    walk(project, project, exclude, &mut out)?;
     Ok(out)
 }
 
