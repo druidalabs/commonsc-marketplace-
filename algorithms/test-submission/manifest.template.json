@@ -1,5 +1,5 @@
 {
-  "blurb": "Blue, brown, or hazel? rs12913832 in the HERC2/OCA2 region drives most of the variation in iris colour among Europeans.",
+  "blurb": "smoke test of the live publish loop",
   "capabilities": {
     "fsRead": [
       "/input"
@@ -13,9 +13,9 @@
   "category": "trait",
   "entrypoint": {
     "function": "compute",
-    "module": "eye_colour.main"
+    "module": "test_submission.main"
   },
-  "id": "commonsc/eye-colour",
+  "id": "druidalabs/test-submission",
   "input": {
     "referenceBuild": "GRCh38",
     "schemaRef": "genomic-io.schema.json#/$defs/VariantSet"
@@ -28,13 +28,13 @@
       "version": "0.26.2"
     }
   },
-  "name": "Eye colour",
+  "name": "Test Submission",
   "output": {
     "schemaRef": "result.schema.json#/$defs/Result"
   },
   "publisher": {
-    "handle": "commonsc",
-    "keyId": "commonsc-2026-01",
+    "handle": "druidalabs",
+    "keyId": "druidalabs-2026-01",
     "name": "CommonSense Reference",
     "url": "https://commonsc.io"
   },
@@ -44,7 +44,7 @@
     "wallSeconds": 10
   },
   "schemaVersion": "2",
-  "sourceUrl": "https://github.com/commonsc/algorithms/tree/main/eye_colour",
+  "sourceUrl": "https://github.com/commonsc/algorithms/tree/main/test_submission",
   "supportedKinds": [
     "23andme",
     "ancestry",

@@ -16,7 +16,7 @@
     "progress": false
   },
   "category": "research",
-  "checksum": "eebc1a8d3c1a1ea232e3eaae5b8bc7c50fba6319bffda7e61a5b967b37ad6637",
+  "checksum": "d37ff81cb407ef749c85dec54821251dbac0d8dd2c2bae39784d4ab338edbfc7",
   "entrypoint": {
     "function": "compute",
     "module": "prs_height.main"
@@ -54,12 +54,12 @@
     "marketplace": {
       "alg": "ed25519",
       "keyId": "commonsc-marketplace-2026-01",
-      "value": "JfWdfkk5Vxa3kjuzvSKkkt+jPG3JUW5cEto3vfS6vfcNfu+ZxAWS2MUJsxh6g+PJ6u+CvKbxjYM9pbsoo0tfBQ=="
+      "value": "qom/Kqttixvbvd5jalnGz7hiVsZR6x9GzjOZ/Ru5e8zKX+fvhYpzVNIsYhRM0D+llmJOz3jT5W08iKNW8XjEAQ=="
     },
     "publisher": {
       "alg": "ed25519",
       "keyId": "druidalabs-2026-01",
-      "value": "jlPXV+38EX6BjFeVgdNSCtX8RkmXf17hVLN77ZDN+RD4EfxCsPseTDZDijTU6s0u7odSCGNzFGmOARNeD5EyCg=="
+      "value": "MLJXxtRk/hENpn8vcU9nQ30S+5Q8YneILI/XZRiH2qHOq2vIrrElBb/VDwvK/OqeujVSY3UKKwpetBydR4VLDw=="
     }
   },
   "sourceUrl": "https://github.com/commonsc/algorithms/tree/main/prs-height",
@@ -67,6 +67,7 @@
     "23andme",
     "ancestry",
     "myheritage",
+    "livingdna",
     "vcf",
     "vcf-gz"
   ],

@@ -16,7 +16,7 @@
     "progress": false
   },
   "category": "trait",
-  "checksum": "1e3b8277a592b13e541e0d14d83b3caa148b118442278348f040a229df736e34",
+  "checksum": "39c275ba9ababd97f918d1bbb676b831a170265d4a774833a03cf43ad21498c9",
   "entrypoint": {
     "function": "compute",
     "module": "eye_colour.main"
@@ -54,12 +54,12 @@
     "marketplace": {
       "alg": "ed25519",
       "keyId": "commonsc-marketplace-2026-01",
-      "value": "hbS5UcUHV94cfqPcJRFmqb1jKFPNxS0Gocv4/TPqTe3i3zjCZYhmJyaTlrbeqtJbizToSvPPt8dLppJ4BGC/CQ=="
+      "value": "VdAg1D4fTvf6vn5PfzlU5hJHPvSR3gJWqTQHL+zvbu8dQepbYPTSn76/6o7lDUMKRVNcP5/3uUAmLCqTOqWeCA=="
     },
     "publisher": {
       "alg": "ed25519",
       "keyId": "commonsc-2026-01",
-      "value": "73pPLw4QPODIoz6YBthq80mgMgkW5NJ/GaHhXySDAoE7+rCspc+ExuWpMWoFRPzk3rLOTEQ8nvCb1eAK2H/PAg=="
+      "value": "Rdegz2reGMcFRWw2QSjpDBJ3Qe+/K8p7/xoBytvmQKKXIkupZZeeFUh5PvQ/+KFFSkl4NQPM9Zmx0GpCC2DeDQ=="
     }
   },
   "sourceUrl": "https://github.com/commonsc/algorithms/tree/main/eye_colour",
@@ -67,6 +67,7 @@
     "23andme",
     "ancestry",
     "myheritage",
+    "livingdna",
     "vcf",
     "vcf-gz"
   ],

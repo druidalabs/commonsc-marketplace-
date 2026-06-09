@@ -1,10 +1,10 @@
 {
   "artifact": {
     "mediaType": "application/vnd.commonsc.pyodide-bundle.tar+zstd",
-    "sha256": "6c453c84b332ee905ef99302218185da2b21e8bb2d5405fcf0594cfc87e8f75a",
-    "size": 1405
+    "sha256": "0ce5cbbddb62cbf6cde7b71961f0bd45b28790d0e6580c91a1855d118ec4b40a",
+    "size": 1166
   },
-  "blurb": "Likelihood of developing freckles from sun exposure. rs1042602 in TYR modulates melanin in skin.",
+  "blurb": "smoke test of the live publish loop",
   "capabilities": {
     "fsRead": [
       "/input"
@@ -16,12 +16,12 @@
     "progress": false
   },
   "category": "trait",
-  "checksum": "eed0587f0123c80b71407dcc0308d79ee194b2945d6d1e4ddae4a61a305bff05",
+  "checksum": "11e7d4574ec82ac66bebb7ad4cff323e5deca237ee9023ef94a321a2cbd8f7c2",
   "entrypoint": {
     "function": "compute",
-    "module": "freckles.main"
+    "module": "test_submission.main"
   },
-  "id": "commonsc/freckles",
+  "id": "druidalabs/test-submission",
   "input": {
     "referenceBuild": "GRCh38",
     "schemaRef": "genomic-io.schema.json#/$defs/VariantSet"
@@ -34,13 +34,13 @@
       "version": "0.26.2"
     }
   },
-  "name": "Freckle tendency",
+  "name": "Test Submission",
   "output": {
     "schemaRef": "result.schema.json#/$defs/Result"
   },
   "publisher": {
-    "handle": "commonsc",
-    "keyId": "commonsc-2026-01",
+    "handle": "druidalabs",
+    "keyId": "druidalabs-2026-01",
     "name": "CommonSense Reference",
     "url": "https://commonsc.io"
   },
@@ -54,15 +54,15 @@
     "marketplace": {
       "alg": "ed25519",
       "keyId": "commonsc-marketplace-2026-01",
-      "value": "gjxdhML1VuLdlh5URn1k92aw+ZqhsMhu7txiKP4QRwfbz6aIa/wcKtssWUQNZMGjAFsrHIkmBvyL/py1y422AA=="
+      "value": "5eJ9Z//Rlomi7peFZ+TasI2o7aLmteXB3QDm+qOUulb9RLUHY7axwDYNVQR2PempNcIEi6syivqYUpvIGmpSCg=="
     },
     "publisher": {
       "alg": "ed25519",
-      "keyId": "commonsc-2026-01",
-      "value": "TIVNGOp7syHMmnLtaU4ELcJuOOREYdSIo3s9vftzosED6KpZZsVRUG00TVvbp5XagOWJpLA2NVikmOYW60JGDw=="
+      "keyId": "druidalabs-2026-01",
+      "value": "y/8RofWCYt8AKkesHPiu3BRjjkDvAQfjKxRb6o4RnTZsvVu2uy/k2/gloHDyQtxymTXU6eDtAKkbq5IsjfCFAg=="
     }
   },
-  "sourceUrl": "https://github.com/commonsc/algorithms/tree/main/freckles",
+  "sourceUrl": "https://github.com/commonsc/algorithms/tree/main/test_submission",
   "supportedKinds": [
     "23andme",
     "ancestry",

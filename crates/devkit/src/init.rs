@@ -162,7 +162,7 @@ fn build_manifest(b: BuildManifest<'_>) -> Value {
         "output": {
             "schemaRef": "result.schema.json#/$defs/Result"
         },
-        "supportedKinds": ["23andme", "ancestry", "myheritage", "vcf", "vcf-gz"],
+        "supportedKinds": ["23andme", "ancestry", "myheritage", "livingdna", "vcf", "vcf-gz"],
         "requirements": {
             "memoryMiB": 128,
             "wallSeconds": 10,

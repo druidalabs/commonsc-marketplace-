@@ -16,7 +16,7 @@
     "progress": false
   },
   "category": "trait",
-  "checksum": "82bd1ecdced3bbad8bc050f9fca74a3974ec74b12b0a2217039475d9c6788d52",
+  "checksum": "34c1f6b31987a22e7c96663f673162b135b81137c30397c81c633d6a0a772235",
   "entrypoint": {
     "function": "compute",
     "module": "asparagus_odour.main"
@@ -54,12 +54,12 @@
     "marketplace": {
       "alg": "ed25519",
       "keyId": "commonsc-marketplace-2026-01",
-      "value": "2bTNd3WiOVgmg+aEQVuyxxWdq2aWnweJhpa0LXKXkvj9YhY5tHR7kkYx3O7weVvDTKjbd5HbLG5e6w/F7rAZCg=="
+      "value": "ToDBta/fxDacRkXApOPGWbgoyjap1o/+JAjs6MzXv5Htg+HVmG8wlPpWPSRHMkrxKDQeVOLAAHmyBEoIEoxXDw=="
     },
     "publisher": {
       "alg": "ed25519",
       "keyId": "commonsc-2026-01",
-      "value": "CjY5feymuAStO85hue6/fv9YUbQURmhlsja1KwRls500b1yt8ZLOBLkvZqOv4u9KYR7e1kPayzpWqIDAnKEqBQ=="
+      "value": "dSGs+I0Z7iURzyg03gwPTKRyAQyzk7eivCAfRD8/nN/h/R7zQvodJxlunZcU2gWr0Gx04TIbbrdWmQ5yqaebAg=="
     }
   },
   "sourceUrl": "https://github.com/commonsc/algorithms/tree/main/asparagus_odour",
@@ -67,6 +67,7 @@
     "23andme",
     "ancestry",
     "myheritage",
+    "livingdna",
     "vcf",
     "vcf-gz"
   ],

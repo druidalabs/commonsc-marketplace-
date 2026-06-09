@@ -1,0 +1,13 @@
+{
+  "fileKind": "23andme",
+  "referenceBuild": "GRCh38",
+  "sampleId": "fixture-test_submission",
+  "variants": [
+    {
+      "chrom": "1",
+      "genotype": "AA",
+      "position": 1,
+      "rsid": "rs1234567"
+    }
+  ]
+}

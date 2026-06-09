@@ -16,7 +16,7 @@
     "progress": false
   },
   "category": "trait",
-  "checksum": "d5fda97304c14d68da98a09294a8847ac6dd650eb4c4eb5cb89310fef9b0bc3d",
+  "checksum": "c2d05faeb9318e8e604997f753dd5539d47f11719956a0435a95cd94ba0f56fc",
   "entrypoint": {
     "function": "compute",
     "module": "earwax_type.main"
@@ -54,12 +54,12 @@
     "marketplace": {
       "alg": "ed25519",
       "keyId": "commonsc-marketplace-2026-01",
-      "value": "DEaIMjLScSlWB2oNEZaPT1AhfLd0EkAPCODjP1q1tUSS9Yrk8Pa7FVZacASxLTJP8Hkl40H8+/6X5YMc/hxbBQ=="
+      "value": "XhzGaO7U0O8nrxuwD2tVuLkJN7jvalDVOOwOjjhjAZdoG9ipglrle/8UYQeUq9sw/RNBvaSBxZK/GCkYkWDvAA=="
     },
     "publisher": {
       "alg": "ed25519",
       "keyId": "commonsc-2026-01",
-      "value": "+VhSs/DkXQHTtam6oMc18dt4EQr1d8UwUacxNSoqGlY/6oGfLVNQtWRvsYldTa1bS+ksDqwIxfbAYIBszwNnBA=="
+      "value": "FsD3k0HcY0yJb/LSTZbjf6clBZDcAelvIJLbqRuswPvNLi+172VdNAYtvkqhMtWv1q5xdvjZVOR8jM+GdQSNDA=="
     }
   },
   "sourceUrl": "https://github.com/commonsc/algorithms/tree/main/earwax_type",
@@ -67,6 +67,7 @@
     "23andme",
     "ancestry",
     "myheritage",
+    "livingdna",
     "vcf",
     "vcf-gz"
   ],

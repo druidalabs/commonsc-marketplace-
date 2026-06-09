@@ -4,45 +4,52 @@
       "bundleUrl": "./bundles/commonsc/asparagus-odour/0.1.0/bundle.tar.zst",
       "id": "commonsc/asparagus-odour",
       "manifestUrl": "./bundles/commonsc/asparagus-odour/0.1.0/manifest.json",
-      "publishedAt": 1780772029136,
+      "publishedAt": 1780999143750,
       "version": "0.1.0"
     },
     {
       "bundleUrl": "./bundles/commonsc/earwax-type/0.1.0/bundle.tar.zst",
       "id": "commonsc/earwax-type",
       "manifestUrl": "./bundles/commonsc/earwax-type/0.1.0/manifest.json",
-      "publishedAt": 1780772028651,
+      "publishedAt": 1780999143760,
       "version": "0.1.0"
     },
     {
       "bundleUrl": "./bundles/commonsc/eye-colour/0.1.0/bundle.tar.zst",
       "id": "commonsc/eye-colour",
       "manifestUrl": "./bundles/commonsc/eye-colour/0.1.0/manifest.json",
-      "publishedAt": 1780772028169,
+      "publishedAt": 1780999143769,
       "version": "0.1.0"
     },
     {
       "bundleUrl": "./bundles/commonsc/freckles/0.1.0/bundle.tar.zst",
       "id": "commonsc/freckles",
       "manifestUrl": "./bundles/commonsc/freckles/0.1.0/manifest.json",
-      "publishedAt": 1780772029607,
+      "publishedAt": 1780999143778,
       "version": "0.1.0"
     },
     {
       "bundleUrl": "./bundles/commonsc/photic-sneeze/0.1.0/bundle.tar.zst",
       "id": "commonsc/photic-sneeze",
       "manifestUrl": "./bundles/commonsc/photic-sneeze/0.1.0/manifest.json",
-      "publishedAt": 1780772030089,
+      "publishedAt": 1780999143786,
       "version": "0.1.0"
     },
     {
       "bundleUrl": "./bundles/druidalabs/prs-height/0.1.0/bundle.tar.zst",
       "id": "druidalabs/prs-height",
       "manifestUrl": "./bundles/druidalabs/prs-height/0.1.0/manifest.json",
-      "publishedAt": 1780668144312,
+      "publishedAt": 1780999143795,
+      "version": "0.1.0"
+    },
+    {
+      "bundleUrl": "./bundles/druidalabs/test-submission/0.1.0/bundle.tar.zst",
+      "id": "druidalabs/test-submission",
+      "manifestUrl": "./bundles/druidalabs/test-submission/0.1.0/manifest.json",
+      "publishedAt": 1780999143804,
       "version": "0.1.0"
     }
   ],
-  "generatedAt": 1780772030089,
+  "generatedAt": 1780999143804,
   "schemaVersion": "1"
 }
