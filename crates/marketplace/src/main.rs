@@ -34,6 +34,7 @@ use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
 
 mod admin;
+mod payments;
 
 #[derive(Parser)]
 #[command(name = "commonsc-marketplace", about = "CommonSense marketplace HTTP server")]
@@ -101,6 +102,8 @@ async fn main() -> Result<()> {
         .route("/admin/submissions/:submission_id", get(admin::detail))
         .route("/admin/submissions/:submission_id/approve", post(admin::approve))
         .route("/admin/submissions/:submission_id/reject", post(admin::reject))
+        .route("/payments/checkout", post(payments::create_checkout))
+        .route("/payments/sessions/:session_id", get(payments::session_status))
         .nest_service(
             "/.well-known",
             ServeDir::new(discovery_dir.join(".well-known")),
@@ -598,19 +601,19 @@ pub(crate) struct ApiError {
 }
 
 impl ApiError {
-    fn client(message: String) -> Self {
+    pub(crate) fn client(message: String) -> Self {
         ApiError {
             status: StatusCode::BAD_REQUEST,
             message,
         }
     }
-    fn server(message: String) -> Self {
+    pub(crate) fn server(message: String) -> Self {
         ApiError {
             status: StatusCode::INTERNAL_SERVER_ERROR,
             message,
         }
     }
-    fn not_found(message: String) -> Self {
+    pub(crate) fn not_found(message: String) -> Self {
         ApiError {
             status: StatusCode::NOT_FOUND,
             message,

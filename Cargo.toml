@@ -34,3 +34,6 @@ hex = "0.4"
 base64 = "0.22"
 ureq = { version = "2", features = ["json"] }
 dirs = "5"
+# Async HTTP client for marketplace → external API calls (Stripe). rustls so
+# we don't drag in OpenSSL; no default features to keep the dep tree shallow.
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
