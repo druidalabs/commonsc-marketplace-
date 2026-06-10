@@ -25,3 +25,11 @@ website-mockup/
 
 ## Local Claude session artifacts.
 .claude/
+
+## Internal / strategy docs. Not for the public marketplace repo. Mirror is in
+## the private druidalabs/CommonSense repo.
+LAUNCH_PLAN.md
+PRICING.md
+ROADMAP.md
+STRATEGY.md
+*.internal.md
