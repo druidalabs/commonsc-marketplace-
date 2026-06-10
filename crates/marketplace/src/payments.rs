@@ -26,6 +26,7 @@ use std::path::{Path, PathBuf};
 
 use axum::{
     extract::{Path as AxumPath, State},
+    response::Html,
     Json,
 };
 use serde::{Deserialize, Serialize};
@@ -33,10 +34,15 @@ use serde_json::Value;
 
 use crate::{AppState, ApiError};
 
-/// Where Stripe Checkout redirects on success/cancel. Tauri's deep-link
-/// plugin registers the `commonsc://` scheme; the desktop captures these.
-const SUCCESS_URL: &str = "commonsc://checkout/return?session={CHECKOUT_SESSION_ID}";
-const CANCEL_URL: &str = "commonsc://checkout/cancel";
+/// Where Stripe Checkout redirects on success/cancel. The desktop loads the
+/// Stripe URL in an embedded Tauri WebviewWindow and listens for navigation
+/// to these paths to know the flow finished and close the child window.
+/// HTTPS so Stripe is happy and the webview will actually navigate (custom
+/// commonsc:// schemes are silently ignored by the webview).
+const SUCCESS_URL: &str =
+    "https://api.commonsc.io/payments/complete/success?session={CHECKOUT_SESSION_ID}";
+const CANCEL_URL: &str =
+    "https://api.commonsc.io/payments/complete/cancel?session={CHECKOUT_SESSION_ID}";
 
 fn stripe_secret() -> Result<String, ApiError> {
     std::env::var("STRIPE_SECRET_KEY").map_err(|_| {
@@ -266,6 +272,50 @@ pub async fn session_status(
         item_id,
     }))
 }
+
+/// GET /payments/complete/success — terminal page Stripe redirects to. The
+/// desktop's embedded webview listens for this URL and closes the child
+/// window; the main app's auto-poll picks up `paid=true` independently. The
+/// page itself is a one-liner with no external assets so it loads instantly
+/// and looks the same offline-of-stylesheets.
+pub async fn complete_success() -> Html<&'static str> {
+    Html(COMPLETE_HTML_SUCCESS)
+}
+
+/// GET /payments/complete/cancel — same shape, "cancelled" copy.
+pub async fn complete_cancel() -> Html<&'static str> {
+    Html(COMPLETE_HTML_CANCEL)
+}
+
+const COMPLETE_HTML_SUCCESS: &str = r#"<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Payment complete · CommonSense</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  html,body{margin:0;height:100%;display:grid;place-items:center;font-family:ui-serif,Georgia,serif;background:#FBF6EC;color:#1F1B14}
+  .card{max-width:420px;padding:32px;text-align:center}
+  h1{margin:0 0 12px;font-size:24px;font-weight:600;letter-spacing:-0.3px}
+  p{margin:0;font-size:14px;line-height:1.6;color:#5C544A}
+  .tick{font-size:48px;color:#3D5A3A;margin-bottom:12px}
+</style></head>
+<body><div class="card">
+  <div class="tick">✓</div>
+  <h1>Payment received</h1>
+  <p>Your report is being installed. You can close this window and return to CommonSense.</p>
+</div></body></html>"#;
+
+const COMPLETE_HTML_CANCEL: &str = r#"<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Payment cancelled · CommonSense</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  html,body{margin:0;height:100%;display:grid;place-items:center;font-family:ui-serif,Georgia,serif;background:#FBF6EC;color:#1F1B14}
+  .card{max-width:420px;padding:32px;text-align:center}
+  h1{margin:0 0 12px;font-size:24px;font-weight:600;letter-spacing:-0.3px}
+  p{margin:0;font-size:14px;line-height:1.6;color:#5C544A}
+</style></head>
+<body><div class="card">
+  <h1>Payment cancelled</h1>
+  <p>Nothing was charged. You can close this window and return to CommonSense.</p>
+</div></body></html>"#;
 
 fn now_seconds() -> i64 {
     use std::time::{SystemTime, UNIX_EPOCH};

@@ -104,6 +104,8 @@ async fn main() -> Result<()> {
         .route("/admin/submissions/:submission_id/reject", post(admin::reject))
         .route("/payments/checkout", post(payments::create_checkout))
         .route("/payments/sessions/:session_id", get(payments::session_status))
+        .route("/payments/complete/success", get(payments::complete_success))
+        .route("/payments/complete/cancel", get(payments::complete_cancel))
         .nest_service(
             "/.well-known",
             ServeDir::new(discovery_dir.join(".well-known")),
