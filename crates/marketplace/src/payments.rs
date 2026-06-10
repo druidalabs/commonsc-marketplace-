@@ -288,19 +288,27 @@ pub async fn complete_cancel() -> Html<&'static str> {
 }
 
 const COMPLETE_HTML_SUCCESS: &str = r#"<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>Payment complete · CommonSense</title>
+<html lang="en"><head><meta charset="utf-8"><title>Payment received · CommonSense</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   html,body{margin:0;height:100%;display:grid;place-items:center;font-family:ui-serif,Georgia,serif;background:#FBF6EC;color:#1F1B14}
-  .card{max-width:420px;padding:32px;text-align:center}
-  h1{margin:0 0 12px;font-size:24px;font-weight:600;letter-spacing:-0.3px}
-  p{margin:0;font-size:14px;line-height:1.6;color:#5C544A}
-  .tick{font-size:48px;color:#3D5A3A;margin-bottom:12px}
+  .card{max-width:440px;padding:36px;text-align:center}
+  h1{margin:0 0 12px;font-size:28px;font-weight:600;letter-spacing:-0.4px}
+  p{margin:0 0 18px;font-size:14.5px;line-height:1.65;color:#5C544A}
+  .tick{
+    width:64px;height:64px;border-radius:50%;margin:0 auto 18px;
+    display:grid;place-items:center;background:#3D5A3A;color:#FBF6EC;
+    font-size:34px;line-height:1;animation:pop .35s cubic-bezier(.18,.89,.32,1.28)
+  }
+  @keyframes pop{from{transform:scale(0)}to{transform:scale(1)}}
+  .meta{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;
+    letter-spacing:.05em;text-transform:uppercase;color:#8B7A60}
 </style></head>
 <body><div class="card">
   <div class="tick">✓</div>
   <h1>Payment received</h1>
-  <p>Your report is being installed. You can close this window and return to CommonSense.</p>
+  <p>Your report is being installed in CommonSense. This window closes automatically.</p>
+  <p class="meta">Returning to app…</p>
 </div></body></html>"#;
 
 const COMPLETE_HTML_CANCEL: &str = r#"<!doctype html>
