@@ -15,8 +15,8 @@
     "network": false,
     "progress": false
   },
-  "category": "trait",
-  "checksum": "d19d01bf82136a71ef48745e727fc7b3055b31a6ce918ccfec194567b91f33bd",
+  "category": "senses",
+  "checksum": "421d96738ebfd4129128a95303d2d4b3135ae9bb8cbfb4d00cc15b402cff430e",
   "entrypoint": {
     "function": "compute",
     "module": "photic_sneeze.main"
@@ -54,12 +54,12 @@
     "marketplace": {
       "alg": "ed25519",
       "keyId": "commonsc-marketplace-2026-01",
-      "value": "PRqEtHukC/NBz/zf9T1htQD6c7hCX3RqxDGS+cxWDx0ojdxbwL3AcTuifJdJYhKEyhqx5D+sq20aaHIm8jMSCQ=="
+      "value": "jCdEa/+7x3VpuGFWjAOYqRnnYm8W7AucU9pDUH5wmjQsy0KMbbmTqNpl/JbOvVzBsb8NC5PUhFwYN/CO/dnfDQ=="
     },
     "publisher": {
       "alg": "ed25519",
       "keyId": "commonsc-2026-01",
-      "value": "0aDzgb0C2lVmRu8HHVRi7AyILslIKrwCAg+WE7S6SGQBxe8NJu4pwplCn8rwDbLfn5US77zWTPLFqAd+2rDMCA=="
+      "value": "wG9tzIu1Tz/ngyTqvMO7wwj4C9I3FZPe8QLaflmGGekQesgXF+VSGqqUis7yk3VGErseQk4K1EkaRJQr2JpTDA=="
     }
   },
   "sourceUrl": "https://github.com/commonsc/algorithms/tree/main/photic_sneeze",

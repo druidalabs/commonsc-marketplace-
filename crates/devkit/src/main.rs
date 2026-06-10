@@ -51,8 +51,9 @@ enum Cmd {
         /// One-line blurb for the catalog card.
         #[arg(long, default_value = "TODO: one-line description of what this algorithm does.")]
         blurb: String,
-        /// Catalog category. Reasonable defaults are `trait` or `wellness`.
-        #[arg(long, default_value = "trait")]
+        /// Atlas region for the catalog grouping. One of:
+        /// appearance, senses, fuel, motion, wellness, quality, ancestry, risk, research.
+        #[arg(long, default_value = "appearance")]
         category: String,
         /// rsID the algorithm centres on. Used to populate the fixture variant
         /// and the entrypoint's stub lookup. Single-variant is the common case;

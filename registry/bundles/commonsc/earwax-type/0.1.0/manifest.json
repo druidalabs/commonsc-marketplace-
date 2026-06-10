@@ -15,8 +15,8 @@
     "network": false,
     "progress": false
   },
-  "category": "trait",
-  "checksum": "c2d05faeb9318e8e604997f753dd5539d47f11719956a0435a95cd94ba0f56fc",
+  "category": "appearance",
+  "checksum": "4a9a2ebf319472fd6a3e9f0f09f3f58ceba099f47fde9407390b3787baed7a8f",
   "entrypoint": {
     "function": "compute",
     "module": "earwax_type.main"
@@ -54,12 +54,12 @@
     "marketplace": {
       "alg": "ed25519",
       "keyId": "commonsc-marketplace-2026-01",
-      "value": "XhzGaO7U0O8nrxuwD2tVuLkJN7jvalDVOOwOjjhjAZdoG9ipglrle/8UYQeUq9sw/RNBvaSBxZK/GCkYkWDvAA=="
+      "value": "adhzNUJaLn2uP0vvT3ZNluIuh7wFtfkb0uf6DDNFZ6pB5I7cLBkRh6/rVvhImkj4+o4S1llNEHj/d4lYLRqsBw=="
     },
     "publisher": {
       "alg": "ed25519",
       "keyId": "commonsc-2026-01",
-      "value": "FsD3k0HcY0yJb/LSTZbjf6clBZDcAelvIJLbqRuswPvNLi+172VdNAYtvkqhMtWv1q5xdvjZVOR8jM+GdQSNDA=="
+      "value": "rHsA00pteQk+qM7rKqsyeGc9yGtop0qiiNEi57bdk9epcIUiUDgpyzhqn/Z5KdpkRkwM+s2Yk3zZ03S7yCsUDA=="
     }
   },
   "sourceUrl": "https://github.com/commonsc/algorithms/tree/main/earwax_type",

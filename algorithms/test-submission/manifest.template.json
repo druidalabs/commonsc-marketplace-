@@ -10,7 +10,7 @@
     "network": false,
     "progress": false
   },
-  "category": "trait",
+  "category": "motion",
   "entrypoint": {
     "function": "compute",
     "module": "test_submission.main"

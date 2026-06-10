@@ -15,8 +15,8 @@
     "network": false,
     "progress": false
   },
-  "category": "trait",
-  "checksum": "34c1f6b31987a22e7c96663f673162b135b81137c30397c81c633d6a0a772235",
+  "category": "senses",
+  "checksum": "fa48ad4c06f1f97449a0be82eb0b238bb4400207b052265e9849bc38363aefae",
   "entrypoint": {
     "function": "compute",
     "module": "asparagus_odour.main"
@@ -54,12 +54,12 @@
     "marketplace": {
       "alg": "ed25519",
       "keyId": "commonsc-marketplace-2026-01",
-      "value": "ToDBta/fxDacRkXApOPGWbgoyjap1o/+JAjs6MzXv5Htg+HVmG8wlPpWPSRHMkrxKDQeVOLAAHmyBEoIEoxXDw=="
+      "value": "oTc9ntis80/2vPjqCKGxcyfOsAqXwBHNxhBWg1gZKXDxHWxcv9CKJL/0VSeWyepxF1UmABSEV9rGn1KKUsSsCg=="
     },
     "publisher": {
       "alg": "ed25519",
       "keyId": "commonsc-2026-01",
-      "value": "dSGs+I0Z7iURzyg03gwPTKRyAQyzk7eivCAfRD8/nN/h/R7zQvodJxlunZcU2gWr0Gx04TIbbrdWmQ5yqaebAg=="
+      "value": "YVfDM2SFSpUkCz5AzdntLFyq92Qs9fGWIcVUEoDemUgS1H/8iUhOdHOsJJntobpQ4ZTvOnfQlpIcu6NIUI/WCw=="
     }
   },
   "sourceUrl": "https://github.com/commonsc/algorithms/tree/main/asparagus_odour",

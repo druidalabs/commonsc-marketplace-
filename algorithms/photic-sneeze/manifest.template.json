@@ -10,7 +10,7 @@
     "network": false,
     "progress": false
   },
-  "category": "trait",
+  "category": "senses",
   "entrypoint": {
     "function": "compute",
     "module": "photic_sneeze.main"

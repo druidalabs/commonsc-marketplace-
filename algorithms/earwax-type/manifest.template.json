@@ -10,7 +10,7 @@
     "network": false,
     "progress": false
   },
-  "category": "trait",
+  "category": "appearance",
   "entrypoint": {
     "function": "compute",
     "module": "earwax_type.main"

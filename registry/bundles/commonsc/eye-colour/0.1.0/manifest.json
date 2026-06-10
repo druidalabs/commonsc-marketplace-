@@ -15,8 +15,8 @@
     "network": false,
     "progress": false
   },
-  "category": "trait",
-  "checksum": "39c275ba9ababd97f918d1bbb676b831a170265d4a774833a03cf43ad21498c9",
+  "category": "appearance",
+  "checksum": "8b9d03196ba118a8030a1c0f4cc4e5c76ce7597978a90cf29671294aff07442a",
   "entrypoint": {
     "function": "compute",
     "module": "eye_colour.main"
@@ -54,12 +54,12 @@
     "marketplace": {
       "alg": "ed25519",
       "keyId": "commonsc-marketplace-2026-01",
-      "value": "VdAg1D4fTvf6vn5PfzlU5hJHPvSR3gJWqTQHL+zvbu8dQepbYPTSn76/6o7lDUMKRVNcP5/3uUAmLCqTOqWeCA=="
+      "value": "Knx/nnTaVL7sXNLWDb0abAtO7QeLlQTh5Vl3AEZUnBfPtGP3eN4HzQwiDXi1J8poVDIYsBpNqOUGl5fsFwroDA=="
     },
     "publisher": {
       "alg": "ed25519",
       "keyId": "commonsc-2026-01",
-      "value": "Rdegz2reGMcFRWw2QSjpDBJ3Qe+/K8p7/xoBytvmQKKXIkupZZeeFUh5PvQ/+KFFSkl4NQPM9Zmx0GpCC2DeDQ=="
+      "value": "an+oBDubhmO7Df9Vx1zZbRR0en0zrbUg8Lz4MivQmD+/QUOT3YSv54b4YSrhAO5brGp9VPFlzlIvnGM+h8PcAw=="
     }
   },
   "sourceUrl": "https://github.com/commonsc/algorithms/tree/main/eye_colour",

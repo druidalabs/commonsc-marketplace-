@@ -5,20 +5,27 @@
   "name": "Height polygenic score",
   "blurb": "Sums the weighted contribution of common height-associated variants into a single z-score-like estimate.",
   "license": "Apache-2.0",
-  "category": "research",
+  "category": "appearance",
   "tier": "pyodide",
   "entrypoint": {
     "module": "prs_height.main",
     "function": "compute"
   },
   "lockfile": {
-    "interpreter": { "name": "pyodide", "version": "0.26.2" },
+    "interpreter": {
+      "name": "pyodide",
+      "version": "0.26.2"
+    },
     "dependencies": []
   },
   "capabilities": {
     "network": false,
-    "fsRead": ["/input"],
-    "fsWrite": ["/output"],
+    "fsRead": [
+      "/input"
+    ],
+    "fsWrite": [
+      "/output"
+    ],
     "progress": false
   },
   "input": {
@@ -28,7 +35,14 @@
   "output": {
     "schemaRef": "result.schema.json#/$defs/Result"
   },
-  "supportedKinds": ["23andme", "ancestry", "myheritage", "livingdna", "vcf", "vcf-gz"],
+  "supportedKinds": [
+    "23andme",
+    "ancestry",
+    "myheritage",
+    "livingdna",
+    "vcf",
+    "vcf-gz"
+  ],
   "requirements": {
     "memoryMiB": 128,
     "wallSeconds": 10,

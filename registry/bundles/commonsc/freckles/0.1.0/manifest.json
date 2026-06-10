@@ -15,8 +15,8 @@
     "network": false,
     "progress": false
   },
-  "category": "trait",
-  "checksum": "eed0587f0123c80b71407dcc0308d79ee194b2945d6d1e4ddae4a61a305bff05",
+  "category": "appearance",
+  "checksum": "1b4a483f7398c8eb448397601398c62f62e2e61f507ef06076f8773be62677a0",
   "entrypoint": {
     "function": "compute",
     "module": "freckles.main"
@@ -54,12 +54,12 @@
     "marketplace": {
       "alg": "ed25519",
       "keyId": "commonsc-marketplace-2026-01",
-      "value": "gjxdhML1VuLdlh5URn1k92aw+ZqhsMhu7txiKP4QRwfbz6aIa/wcKtssWUQNZMGjAFsrHIkmBvyL/py1y422AA=="
+      "value": "s1VXoCidyoFczIx9i9Ico2Zwz/zM1hKwoM+SlBcJescO5mGiGvNHTPVE8qpvhy2Jj/ceFG0jqeP4OciLMzbYDw=="
     },
     "publisher": {
       "alg": "ed25519",
       "keyId": "commonsc-2026-01",
-      "value": "TIVNGOp7syHMmnLtaU4ELcJuOOREYdSIo3s9vftzosED6KpZZsVRUG00TVvbp5XagOWJpLA2NVikmOYW60JGDw=="
+      "value": "a5FOfwZc4PMylqxLkMEfD5boDvnXwmE6Kpb2IrQYe4ceJtgHPc9ir/4Z4Ke0ruwLxzG4MEwAF8LxoaB4gq04Aw=="
     }
   },
   "sourceUrl": "https://github.com/commonsc/algorithms/tree/main/freckles",

@@ -15,8 +15,8 @@
     "network": false,
     "progress": false
   },
-  "category": "trait",
-  "checksum": "11e7d4574ec82ac66bebb7ad4cff323e5deca237ee9023ef94a321a2cbd8f7c2",
+  "category": "motion",
+  "checksum": "705a65ad0e51ceb43b0babcf77f8d95f522feb129bd0b305a975b04bc3194eea",
   "entrypoint": {
     "function": "compute",
     "module": "test_submission.main"
@@ -54,12 +54,12 @@
     "marketplace": {
       "alg": "ed25519",
       "keyId": "commonsc-marketplace-2026-01",
-      "value": "5eJ9Z//Rlomi7peFZ+TasI2o7aLmteXB3QDm+qOUulb9RLUHY7axwDYNVQR2PempNcIEi6syivqYUpvIGmpSCg=="
+      "value": "556V6SQCC6l1Ha8bYy6Vshcmx+jOXvoVR4oUDjrTfnFNsoLkCzFU6CBBg6At1jqJX/SnlgHXioJjuUkuqEydCg=="
     },
     "publisher": {
       "alg": "ed25519",
       "keyId": "druidalabs-2026-01",
-      "value": "y/8RofWCYt8AKkesHPiu3BRjjkDvAQfjKxRb6o4RnTZsvVu2uy/k2/gloHDyQtxymTXU6eDtAKkbq5IsjfCFAg=="
+      "value": "XU2pZ9T4BL+pqnYQizOMLq84eeK6+fvHz5W+oNznJMkmK5d15o9BThuA67p/XAJs165wnLPwgXuYlJe586wBCg=="
     }
   },
   "sourceUrl": "https://github.com/commonsc/algorithms/tree/main/test_submission",

@@ -356,9 +356,12 @@ fn title_case(slug: &str) -> String {
 
 fn validate_category(c: &str) -> Result<String> {
     match c {
-        "trait" | "wellness" | "ancestry" | "quality" | "risk" | "research" => Ok(c.to_string()),
+        // Atlas regions (consumer-facing groupings) + supporting categories.
+        // "trait" kept for back-compat with manifests pre-atlas-rename.
+        "appearance" | "senses" | "fuel" | "motion" | "wellness" | "quality"
+        | "ancestry" | "risk" | "research" | "trait" => Ok(c.to_string()),
         _ => Err(anyhow!(
-            "invalid category `{c}` (expected one of trait, wellness, ancestry, quality, risk, research)"
+            "invalid category `{c}` (expected one of appearance, senses, fuel, motion, wellness, quality, ancestry, risk, research)"
         )),
     }
 }

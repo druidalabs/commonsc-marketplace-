@@ -57,8 +57,11 @@
     },
     "category": {
       "type": "string",
-      "enum": ["quality", "wellness", "ancestry", "trait", "risk", "research"],
-      "description": "Catalog grouping for the UI. Does not affect execution."
+      "enum": [
+        "appearance", "senses", "fuel", "motion", "wellness",
+        "quality", "ancestry", "trait", "risk", "research"
+      ],
+      "description": "Catalog grouping for the consumer 'atlas of self-discovery' UI. Primary regions: appearance, senses, fuel, motion, wellness. Quality is calibration (QC). Legacy: trait (kept for older manifests). Future: ancestry, risk, research."
     },
     "tier": {
       "type": "string",

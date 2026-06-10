@@ -15,8 +15,8 @@
     "network": false,
     "progress": false
   },
-  "category": "research",
-  "checksum": "d37ff81cb407ef749c85dec54821251dbac0d8dd2c2bae39784d4ab338edbfc7",
+  "category": "appearance",
+  "checksum": "5f22186aa9d9cd89582bff32913d9b766a789b9ea7a1f88be4a6f77fb3652fbb",
   "entrypoint": {
     "function": "compute",
     "module": "prs_height.main"
@@ -54,12 +54,12 @@
     "marketplace": {
       "alg": "ed25519",
       "keyId": "commonsc-marketplace-2026-01",
-      "value": "qom/Kqttixvbvd5jalnGz7hiVsZR6x9GzjOZ/Ru5e8zKX+fvhYpzVNIsYhRM0D+llmJOz3jT5W08iKNW8XjEAQ=="
+      "value": "h2ASzbCNwFOjm4TDFxxkc3tJYOez2k83Hrg8sGyrQyKcGb6VX6sRmGJ8Wgq8fBVe0hZGr8TjeBPXMY6FMxTjDQ=="
     },
     "publisher": {
       "alg": "ed25519",
       "keyId": "druidalabs-2026-01",
-      "value": "MLJXxtRk/hENpn8vcU9nQ30S+5Q8YneILI/XZRiH2qHOq2vIrrElBb/VDwvK/OqeujVSY3UKKwpetBydR4VLDw=="
+      "value": "uMd40r3EgVbrLQHg+BJf8WRZK1OCuSCz4cr7q7yl5Yvv6RSbOg+a0xtnxBEsz3LCGLtjCE9IDXaMW1e5idYqAg=="
     }
   },
   "sourceUrl": "https://github.com/commonsc/algorithms/tree/main/prs-height",
