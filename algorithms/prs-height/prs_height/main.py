@@ -13,6 +13,7 @@ the only thing that changes is the size of `WEIGHTS`.
 """
 from __future__ import annotations
 
+import math
 import time
 from typing import Any
 
@@ -35,6 +36,30 @@ WEIGHTS: list[dict[str, Any]] = [
 def _count_effect_alleles(genotype: str, effect_allele: str) -> int:
     """Number of effect alleles (0, 1, or 2) in a diploid call like 'CT'."""
     return sum(1 for base in genotype if base == effect_allele)
+
+
+def _population_sigma(weights: list[dict[str, Any]]) -> float:
+    """Additive standard deviation of the score across a population in
+    Hardy-Weinberg equilibrium, derived from the variant frequencies. Used to
+    place the user on a population curve. Floored so we never divide by zero."""
+    var = sum((w["beta"] ** 2) * 2.0 * w["freq"] * (1.0 - w["freq"]) for w in weights)
+    return math.sqrt(var) or 1e-6
+
+
+def _normal_bins(sigma: float, n: int = 21) -> list[dict[str, Any]]:
+    """Pre-binned normal population curve centred at the median (0), spanning
+    ±3.5σ. The host renders this as a histogram with the user's value marked;
+    binning happens here because the UI never bins."""
+    lo, hi = -3.5 * sigma, 3.5 * sigma
+    width = (hi - lo) / n
+    bins: list[dict[str, Any]] = []
+    for i in range(n):
+        a = lo + i * width
+        b = a + width
+        mid = (a + b) / 2.0
+        density = math.exp(-(mid * mid) / (2.0 * sigma * sigma))
+        bins.append({"from": round(a, 4), "to": round(b, 4), "count": int(round(density * 1000))})
+    return bins
 
 
 def compute(variant_set: dict[str, Any]) -> dict[str, Any]:
@@ -70,30 +95,46 @@ def compute(variant_set: dict[str, Any]) -> dict[str, Any]:
             "blocks": [],
         }
 
-    # Plain-English tone bucketing. Bands are illustrative, not clinical.
-    if score >= 0.05:
-        tone, headline = "moss", f"Above median (+{score:.2f})."
-    elif score <= -0.05:
-        tone, headline = "amber", f"Below median ({score:.2f})."
+    # Convert the raw weighted sum into a population z-score: subtract the
+    # population mean (expected effect alleles = 2·freq) and divide by the
+    # additive SD, both over the variants this sample actually had. Now 0 is
+    # the median and the user sits honestly on a standard-normal curve.
+    used_weights = [w for w in WEIGHTS if w["rsid"] in {r["rsid"] for r in used}]
+    pop_mean = sum(w["beta"] * 2.0 * w["freq"] for w in used_weights)
+    sigma = _population_sigma(used_weights)
+    z = (score - pop_mean) / sigma
+
+    # Plain-English tone bucketing on the z-score. Illustrative, not clinical.
+    if z >= 0.5:
+        tone, headline = "moss", f"Above median (+{z:.1f}σ)."
+    elif z <= -0.5:
+        tone, headline = "amber", f"Below median ({z:.1f}σ)."
     else:
-        tone, headline = "neutral", f"Near median ({score:+.2f})."
+        tone, headline = "neutral", f"Near median ({z:+.1f}σ)."
 
     blocks: list[dict[str, Any]] = [
         {
             "kind": "score",
             "title": "Polygenic score",
-            "value": round(score, 4),
-            "unit": "z",
-            "scale": {"min": -1.0, "max": 1.0},
+            "value": round(z, 2),
+            "unit": "σ",
+            "scale": {"min": -3.5, "max": 3.5},
             "bands": [
-                {"at": -0.5, "label": "lower",  "tone": "amber"},
+                {"at": -2.0, "label": "−2σ",    "tone": "amber"},
                 {"at":  0.0, "label": "median", "tone": "neutral"},
-                {"at":  0.5, "label": "upper",  "tone": "amber"},
+                {"at":  2.0, "label": "+2σ",    "tone": "amber"},
             ],
             "interpretation": (
                 "Eight variants only — illustrative, not clinical. "
                 "Real height PRS uses hundreds of variants and an ancestry-matched reference."
             ),
+        },
+        {
+            "kind": "distribution",
+            "title": "Where you fall in the population",
+            "bins": _normal_bins(1.0),
+            "userValue": round(z, 2),
+            "unit": "σ",
         },
         {
             "kind": "rows",
