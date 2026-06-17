@@ -1,8 +1,8 @@
 {
   "artifact": {
     "mediaType": "application/vnd.commonsc.pyodide-bundle.tar+zstd",
-    "sha256": "48fc8dd13591a4b7f8180acae333f67526b3fdf921ce7a4fca36286d9d3657cc",
-    "size": 2546
+    "sha256": "00bebc45de72b7ee1895820e007a93335ca04d5def63d3e4344a8ea4cf720548",
+    "size": 3266
   },
   "blurb": "Sums the weighted contribution of common height-associated variants into a single z-score-like estimate.",
   "capabilities": {
@@ -16,7 +16,7 @@
     "progress": false
   },
   "category": "appearance",
-  "checksum": "5f22186aa9d9cd89582bff32913d9b766a789b9ea7a1f88be4a6f77fb3652fbb",
+  "checksum": "e298d58857d137be3107a32af3041f4c658c91f5be1f1dd8f710bc711caa4296",
   "entrypoint": {
     "function": "compute",
     "module": "prs_height.main"
@@ -54,12 +54,12 @@
     "marketplace": {
       "alg": "ed25519",
       "keyId": "commonsc-marketplace-2026-01",
-      "value": "h2ASzbCNwFOjm4TDFxxkc3tJYOez2k83Hrg8sGyrQyKcGb6VX6sRmGJ8Wgq8fBVe0hZGr8TjeBPXMY6FMxTjDQ=="
+      "value": "8P2Ew2Jp4UDzljoOrXpbw/Ra/dNm3E55W1mA2b6tgn1opJ2Gve0LNongNLvOr0Dmhn76NwkTnb+YEiOPIcj8Dw=="
     },
     "publisher": {
       "alg": "ed25519",
       "keyId": "druidalabs-2026-01",
-      "value": "uMd40r3EgVbrLQHg+BJf8WRZK1OCuSCz4cr7q7yl5Yvv6RSbOg+a0xtnxBEsz3LCGLtjCE9IDXaMW1e5idYqAg=="
+      "value": "WwIR2E1wINWWJLrB2CeREBS+0mNRFkTRd0yCCq1D3g5fX19wFBXP1TknSbGkQ2aiQoUk3S0ZbcPgY8WH/QbACw=="
     }
   },
   "sourceUrl": "https://github.com/commonsc/algorithms/tree/main/prs-height",

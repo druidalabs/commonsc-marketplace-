@@ -39,7 +39,11 @@
       "bundleUrl": "./bundles/druidalabs/prs-height/0.1.0/bundle.tar.zst",
       "id": "druidalabs/prs-height",
       "manifestUrl": "./bundles/druidalabs/prs-height/0.1.0/manifest.json",
-      "publishedAt": 1781091656107,
+      "pricing": {
+        "amountMinor": 299,
+        "currency": "GBP"
+      },
+      "publishedAt": 1781709327413,
       "version": "0.1.0"
     },
     {
@@ -50,6 +54,6 @@
       "version": "0.1.0"
     }
   ],
-  "generatedAt": 1781091656116,
+  "generatedAt": 1781709327413,
   "schemaVersion": "1"
 }
