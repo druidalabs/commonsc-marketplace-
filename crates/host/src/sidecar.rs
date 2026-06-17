@@ -48,11 +48,17 @@ pub enum SidecarError {
 /// How the sidecar is launched.
 #[derive(Debug, Clone)]
 pub struct SidecarConfig {
-    /// Path to the Deno binary. Defaults to `deno` (resolved via PATH).
+    /// Path to the Deno binary. Defaults to `deno` (resolved via PATH). The
+    /// packaged desktop app overrides this with the bundled sidecar binary.
     pub deno: PathBuf,
     /// Path to the sidecar entry script (TypeScript). Defaults to the in-repo copy
-    /// alongside this crate, so `cargo run` works from a fresh checkout.
+    /// alongside this crate, so `cargo run` works from a fresh checkout. The
+    /// packaged app points this at the run.ts copied out of app resources.
     pub script: PathBuf,
+    /// Where Deno keeps its cache (transpile + v8 code cache). `None` uses
+    /// Deno's default (~/Library/Caches/deno). The packaged app sets this to a
+    /// writable app-data dir so nothing depends on a system Deno install.
+    pub deno_dir: Option<PathBuf>,
     /// Paths the algorithm is permitted to read from disk via Deno. `None`
     /// keeps the legacy broad `--allow-read`; `Some(paths)` narrows to that
     /// allowlist. The bundle's unpacked tempdir is the only thing in here for
@@ -67,6 +73,7 @@ impl Default for SidecarConfig {
         SidecarConfig {
             deno: PathBuf::from("deno"),
             script,
+            deno_dir: None,
             allow_read: None,
         }
     }
@@ -102,18 +109,25 @@ impl Sidecar {
                 format!("--allow-read={joined}")
             }
         };
-        let mut child = Command::new(&cfg.deno)
+        let mut command = Command::new(&cfg.deno);
+        command
             .arg("run")
             .arg("--no-prompt")
             .arg("--quiet")
             .arg(&allow_read_arg)
             .arg("--allow-env")
             .arg(&cfg.script)
+            .env("DENO_NO_UPDATE_CHECK", "1")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::inherit())
-            .spawn()
-            .map_err(SidecarError::Spawn)?;
+            .stderr(Stdio::inherit());
+        // Point Deno's cache at a writable dir when the caller supplies one —
+        // the packaged app's resources are read-only, so the default cache
+        // location is overridden to app-data.
+        if let Some(dir) = &cfg.deno_dir {
+            command.env("DENO_DIR", dir);
+        }
+        let mut child = command.spawn().map_err(SidecarError::Spawn)?;
 
         let stdin = child.stdin.take().ok_or(SidecarError::BrokenPipe)?;
         let stdout = BufReader::new(child.stdout.take().ok_or(SidecarError::BrokenPipe)?);
@@ -238,6 +252,29 @@ pub fn run_one(
     function: &str,
     variant_set: serde_json::Value,
 ) -> Result<serde_json::Value, SidecarError> {
+    run_one_with_config(
+        SidecarConfig::default(),
+        bundle_bytes,
+        expected_sha256,
+        module,
+        function,
+        variant_set,
+    )
+}
+
+/// Like [`run_one`] but with an explicit [`SidecarConfig`] — the packaged
+/// desktop app passes one pointing `deno`/`script`/`deno_dir` at bundled
+/// resources instead of a system Deno install. `allow_read` is computed here
+/// (bundle tempdir + the sidecar script's directory), overriding any the
+/// caller set, so callers only need to supply the paths.
+pub fn run_one_with_config(
+    mut cfg: SidecarConfig,
+    bundle_bytes: &[u8],
+    expected_sha256: &str,
+    module: &str,
+    function: &str,
+    variant_set: serde_json::Value,
+) -> Result<serde_json::Value, SidecarError> {
     let computed = hex::encode(Sha256::digest(bundle_bytes));
     if !computed.eq_ignore_ascii_case(expected_sha256) {
         return Err(SidecarError::BundleHashMismatch {
@@ -248,7 +285,6 @@ pub fn run_one(
     let dir = TempDir::new().map_err(SidecarError::Io)?;
     unpack_bundle(bundle_bytes, dir.path())?;
 
-    let mut cfg = SidecarConfig::default();
     // Two paths the sidecar legitimately needs to read:
     //   1. The bundle tempdir — the algorithm's own code + data.
     //   2. The sidecar's own directory — Pyodide loads its WASM and stdlib
