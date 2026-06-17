@@ -36,15 +36,32 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      LINODE_HOST: ${{ secrets.LINODE_HOST }}
+      LINODE_USER: ${{ secrets.LINODE_USER }}
+      LINODE_DEPLOY_KEY: ${{ secrets.LINODE_DEPLOY_KEY }}
+      WEBSITE_ROOT: ${{ vars.WEBSITE_ROOT }}
     steps:
+      - name: Check required config
+        run: |
+          missing=()
+          [ -n "$LINODE_HOST" ]       || missing+=(LINODE_HOST)
+          [ -n "$LINODE_USER" ]       || missing+=(LINODE_USER)
+          [ -n "$LINODE_DEPLOY_KEY" ] || missing+=(LINODE_DEPLOY_KEY)
+          [ -n "$WEBSITE_ROOT" ]      || missing+=("WEBSITE_ROOT (variable)")
+          if [ ${#missing[@]} -ne 0 ]; then
+            echo "::error::Missing required config: ${missing[*]}. Set secrets/variables under Settings → Secrets and variables → Actions, then re-run."
+            exit 1
+          fi
+
       - uses: actions/checkout@v4
 
       - name: Configure SSH
         run: |
           mkdir -p ~/.ssh
-          printf '%s\n' "${{ secrets.LINODE_DEPLOY_KEY }}" > ~/.ssh/id_deploy
+          printf '%s\n' "$LINODE_DEPLOY_KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-          ssh-keyscan -H "${{ secrets.LINODE_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+          ssh-keyscan -H "$LINODE_HOST" >> ~/.ssh/known_hosts 2>/dev/null
 
       - name: Rsync website → web root
         run: |
@@ -53,7 +70,7 @@ jobs:
             --exclude 'README*' \
             -e "ssh -i ~/.ssh/id_deploy -o BatchMode=yes" \
             website/ \
-            "${{ secrets.LINODE_USER }}@${{ secrets.LINODE_HOST }}:${{ vars.WEBSITE_ROOT }}/"
+            "$LINODE_USER@$LINODE_HOST:$WEBSITE_ROOT/"
           # To also prune files that were removed from the repo, add --delete —
           # but only once you've confirmed WEBSITE_ROOT is the dedicated site
           # directory, since --delete will remove anything else living there.
