@@ -1,0 +1,57 @@
+name: Deploy marketplace
+
+# Automates the existing server-side deploy: SSH into the Linode box and run
+# deploy/deploy.sh, which pulls origin/main, rebuilds commonsc-marketplace in
+# release mode, restarts the systemd service, and health-checks it. The build
+# happens on the server (it already has the Rust toolchain), so the GitHub
+# runner does almost no work — this stays comfortably free even on a private
+# repo, and free outright on this public one.
+#
+# Required repo secrets (Settings → Secrets and variables → Actions):
+#   LINODE_HOST        the box's hostname or IP (e.g. api.commonsc.io)
+#   LINODE_USER        SSH user that owns /srv/commonsc (e.g. commonsc)
+#   LINODE_DEPLOY_KEY  private half of an SSH keypair whose public half is in
+#                      that user's ~/.ssh/authorized_keys
+#
+# Server prerequisites (already satisfied by the manual deploy in
+# deploy/README.md): the user can run `sudo systemctl restart
+# commonsc-marketplace` without a password, and /srv/commonsc is a clone of
+# this repo that can `git fetch origin main` (public repo → no creds needed).
+
+on:
+  push:
+    branches: [main]
+    # Only redeploy when something that affects the running service changes.
+    paths:
+      - 'crates/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'deploy/**'
+      - 'registry/**'
+      - '.github/workflows/deploy-marketplace.yml'
+  # Allow a manual run from the Actions tab.
+  workflow_dispatch: {}
+
+# Never let two deploys overlap; queue them instead of cancelling, so an
+# in-flight build finishes cleanly.
+concurrency:
+  group: deploy-marketplace
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.LINODE_DEPLOY_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -H "${{ secrets.LINODE_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Run server deploy script
+        run: |
+          ssh -i ~/.ssh/id_deploy -o BatchMode=yes \
+            "${{ secrets.LINODE_USER }}@${{ secrets.LINODE_HOST }}" \
+            'cd /srv/commonsc && ./deploy/deploy.sh'
