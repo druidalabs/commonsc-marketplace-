@@ -185,6 +185,11 @@
           "type": "string",
           "enum": ["GRCh37", "GRCh38"],
           "description": "Reference build the algorithm was authored against. A mismatch with the user's data is the one wrong-answer mode no sandbox catches — surfaced loudly in the run UI."
+        },
+        "requiredRsids": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^rs[0-9]+$" },
+          "description": "Every rsID the algorithm reads from the VariantSet. The host extracts exactly these from the user's retained genome and passes only them — so the algorithm sees what it needs without the rest of the genome crossing the sandbox boundary. Also drives the honest pre-run compatibility check (which of these the sample actually called). Declare ALL of them; the devkit cross-checks against the code."
         }
       }
     },

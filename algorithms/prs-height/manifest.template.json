@@ -30,7 +30,17 @@
   },
   "input": {
     "schemaRef": "genomic-io.schema.json#/$defs/VariantSet",
-    "referenceBuild": "GRCh38"
+    "referenceBuild": "GRCh38",
+    "requiredRsids": [
+      "rs143384",
+      "rs2871865",
+      "rs7639425",
+      "rs6060369",
+      "rs2230754",
+      "rs6440003",
+      "rs1208",
+      "rs10946808"
+    ]
   },
   "output": {
     "schemaRef": "result.schema.json#/$defs/Result"
