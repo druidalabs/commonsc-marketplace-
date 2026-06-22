@@ -179,7 +179,32 @@ Overrides (env): `NGINX_LOG` (default `/var/log/nginx/access.log`),
 
 ---
 
+## 4. The weekly KPI report
+
+`weekly-report.sh` prints the six-KPI traction snapshot (see the playbook). Run
+it ad-hoc, or weekly via cron — appending each run to a rolling log gives a
+chronological history in one file.
+
+**Both crons must run as `github_commonsc-marketplace`** — it's in the `adm`
+group (so it can read the nginx logs) and owns `/srv/commonsc` (so it can write
+under `analytics/`). Install both at once (idempotent):
+```sh
+sudo -u github_commonsc-marketplace bash -c '
+  mkdir -p /srv/commonsc/analytics
+  ( crontab -l 2>/dev/null | grep -vE "tally-downloads.sh|weekly-report.sh"
+    echo "5 0 * * *  /srv/commonsc/deploy/analytics/tally-downloads.sh"
+    echo "0 9 * * 1  /srv/commonsc/deploy/analytics/weekly-report.sh >> /srv/commonsc/analytics/weekly-reports.log 2>&1"
+  ) | crontab -
+'
+```
+Daily tally just after midnight; weekly report Mondays 09:00. Read the latest:
+```sh
+tail -n 40 /srv/commonsc/analytics/weekly-reports.log
+```
+
+---
+
 ## Files in this directory
 - `README.md` — this guide.
-- `tally-downloads.sh` — the daily aggregate tally (privacy-preserving; stores
-  counts only, never IPs).
+- `tally-downloads.sh` — the daily aggregate download tally (counts only, no IPs).
+- `weekly-report.sh` — the six-KPI weekly traction snapshot.
