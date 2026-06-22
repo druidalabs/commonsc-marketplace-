@@ -29,8 +29,18 @@ log "pulling origin/$BRANCH"
 git fetch --quiet origin "$BRANCH"
 git reset --hard "origin/$BRANCH"
 
-log "building commonsc-marketplace (release)"
-~/.cargo/bin/cargo build --release -p commonsc-marketplace
+# The toolchain is installed under the workspace (CARGO_HOME=$ROOT/.cargo,
+# RUSTUP_HOME=$ROOT/.rustup), not the deploy user's home — and the CI SSH
+# session is non-interactive, so there's no profile to put cargo on PATH.
+# Point at it explicitly; fall back to PATH for a dev box with a normal install.
+export CARGO_HOME="${CARGO_HOME:-$ROOT/.cargo}"
+export RUSTUP_HOME="${RUSTUP_HOME:-$ROOT/.rustup}"
+cargo_bin="$CARGO_HOME/bin/cargo"
+[ -x "$cargo_bin" ] || cargo_bin="$(command -v cargo || true)"
+[ -n "$cargo_bin" ] || { log "cargo not found (looked in $CARGO_HOME/bin and PATH)"; exit 1; }
+
+log "building commonsc-marketplace (release) with $cargo_bin"
+"$cargo_bin" build --release -p commonsc-marketplace
 
 log "restarting $SERVICE"
 sudo /bin/systemctl restart "$SERVICE"
