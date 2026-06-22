@@ -26,7 +26,55 @@ Nothing is added to any page; visitors are tracked by nothing.
 - API (`api.commonsc.io`): `/var/log/nginx/api.commonsc.io.access.log`.
 
 Downloads are GETs for the DMG on the **website** host, so most commands below
-use `/var/log/nginx/access.log`.
+use `/var/log/nginx/access.log`. SSH to the box first:
+`ssh github_commonsc-marketplace@commonsc.io`.
+
+---
+
+## Analysis playbook (the questions worth asking)
+
+Day-to-day, you mostly want answers to a handful of questions. Copy-paste these
+on the box.
+
+**How many downloads today?**
+```sh
+grep -F "[$(date +%d/%b/%Y)" /var/log/nginx/access.log \
+  | grep -E 'GET /download/CommonSense-[^ ]+\.dmg .* (200|206) ' | wc -l
+```
+
+**Last 7 days, and all-time** (from the daily tally CSV — survives log rotation):
+```sh
+tail -7 /srv/commonsc/analytics/downloads.csv | column -s, -t
+awk -F, 'NR>1{d+=$2} END{print "all-time downloads:", d}' /srv/commonsc/analytics/downloads.csv
+```
+
+**Which versions are people downloading?**
+```sh
+grep -oE 'CommonSense-[0-9][^ ]*\.dmg' /var/log/nginx/access.log | sort | uniq -c | sort -rn
+```
+
+**How much traffic today** (unique visitors ≈ distinct IPs, and total hits)?
+```sh
+t="[$(date +%d/%b/%Y)"
+echo "unique IPs: $(grep -F "$t" /var/log/nginx/access.log | awk '{print $1}' | sort -u | wc -l)"
+echo "requests:   $(grep -cF "$t" /var/log/nginx/access.log)"
+```
+
+**Where is traffic coming from?** (external referrers — search, socials, links):
+```sh
+awk -F'"' '$4 !~ /commonsc\.io/ && $4 != "-" {print $4}' /var/log/nginx/access.log \
+  | sort | uniq -c | sort -rn | head -20
+```
+
+**Are visitors converting?** (download-page views vs actual downloads):
+```sh
+v=$(grep -cE 'GET /download(\.html)?[ ?]' /var/log/nginx/access.log)
+d=$(grep -E 'GET /download/CommonSense-[^ ]+\.dmg .* (200|206) ' /var/log/nginx/access.log | wc -l)
+echo "download-page views: $v | downloads: $d"
+```
+
+**Want a visual dashboard instead of one-liners?** → run GoAccess (section 2).
+**Want the trend over weeks/months?** → the tally CSV (section 3) is your history.
 
 ---
 
