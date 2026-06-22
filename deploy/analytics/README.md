@@ -181,7 +181,8 @@ Overrides (env): `NGINX_LOG` (default `/var/log/nginx/access.log`),
 
 ## 4. The weekly KPI report
 
-`weekly-report.sh` prints the six-KPI traction snapshot (see the playbook). Run
+`weekly-report.sh` prints the traction snapshot — visitors, downloads, catalog
+opens, contributor submissions, agent-discovery hits (revenue stays in Stripe). Run
 it ad-hoc, or weekly via cron — appending each run to a rolling log gives a
 chronological history in one file.
 

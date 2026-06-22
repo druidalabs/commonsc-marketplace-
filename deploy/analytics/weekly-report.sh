@@ -5,13 +5,13 @@
 # Window defaults to 7 days; override with DAYS=30.
 #
 # The app phones nothing home by design, so we measure the edges: discover →
-# download → catalog-open (usage proxy) → install → pay → contribute.
+# download → catalog-open (usage proxy) → install → contribute. Revenue is left
+# to Stripe (its dashboard + notifications are the source of truth).
 
 set -uo pipefail   # not -e: a missing source should print 0, not abort the report
 
 WEB_LOG="${WEB_LOG:-/var/log/nginx/access.log}"
 API_LOG="${API_LOG:-/var/log/nginx/api.commonsc.io.access.log}"
-PAYMENTS="${PAYMENTS:-/srv/commonsc/payments}"
 SUBMISSIONS="${SUBMISSIONS:-/srv/commonsc/submissions}"
 DAYS="${DAYS:-7}"
 
@@ -47,40 +47,24 @@ opens=$(    win "$API_LOG" | n 'GET /registry/index\.json')
 installs=$( win "$API_LOG" | n 'GET /registry/bundles/.*\.tar\.zst')
 echo "3. Catalog opens            : $opens   (community-algorithm installs $installs)"
 
-# 4 — Market fit: paid purchases + revenue (from persisted Stripe records)
-if [ -d "$PAYMENTS" ]; then
-  python3 - "$PAYMENTS" "$DAYS" <<'PY'
-import json, glob, os, sys, time
-d, days = sys.argv[1], int(sys.argv[2])
-cutoff = time.time() - days * 86400
-tot = totrev = win = winrev = 0
-for f in glob.glob(os.path.join(d, "*.json")):
-    try: r = json.load(open(f))
-    except Exception: continue
-    if not r.get("paid"): continue
-    amt = r.get("amount_minor", 0)
-    tot += 1; totrev += amt
-    if r.get("created_at", 0) >= cutoff:
-        win += 1; winrev += amt
-print(f"4. Paid purchases           : {win}   (~£{winrev/100:.2f})   | all-time {tot} (~£{totrev/100:.2f})")
-PY
-else
-  echo "4. Paid purchases           : (no payments dir at $PAYMENTS)"
-fi
+# Revenue is intentionally NOT tracked here — Stripe's dashboard + payment
+# notifications are the source of truth (and the local payment records include
+# old test-mode checkouts). This report covers only what Stripe doesn't.
 
-# 5 — Supply: contributor submissions (files modified in the window + total)
+# 4 — Supply: contributor submissions (files modified in the window + total)
 if [ -d "$SUBMISSIONS" ]; then
   recent=$(find "$SUBMISSIONS" -type f -name '*.json' -mtime -"$DAYS" 2>/dev/null | grep -c .)
   total=$( find "$SUBMISSIONS" -type f -name '*.json' 2>/dev/null | grep -c .)
-  echo "5. Contributor submissions  : $recent   (all-time $total)"
+  echo "4. Contributor submissions  : $recent   (all-time $total)"
 else
-  echo "5. Contributor submissions  : (no submissions dir)"
+  echo "4. Contributor submissions  : (no submissions dir)"
 fi
 
-# 6 — Agent traction: hits to the agent-facing discovery surfaces
+# 5 — Agent traction: hits to the agent-facing discovery surfaces
 agent=$( win "$API_LOG" | n 'GET /(\.well-known/commonsc\.json|llms\.txt)')
-echo "6. Agent discovery hits     : $agent"
+echo "5. Agent discovery hits     : $agent"
 
 echo "════════════════════════════════════════════════"
-echo "Signal order: #4 paid > #3 opens > #2 downloads > #1 visitors."
+echo "Revenue → Stripe dashboard + payment notifications (not tracked here)."
+echo "Signal order: paid (Stripe) > opens > downloads > visitors."
 echo "Trend history: /srv/commonsc/analytics/downloads.csv"
