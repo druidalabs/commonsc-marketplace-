@@ -33,9 +33,18 @@ echo "════════════════════════�
 echo " CommonSense traction — last ${DAYS} days  ($(date +%Y-%m-%d))"
 echo "════════════════════════════════════════════════"
 
-# 1 — Acquisition: unique visitors (distinct IPs across both vhosts)
-visitors=$( { win "$WEB_LOG"; win "$API_LOG"; } | awk '{print $1}' | sort -u | grep -c . )
-echo "1. Unique visitors          : $visitors"
+# 1 — Audience: unique IPs split by user-agent into humans / AI agents / other
+# bots. Raw visitor counts are crawler-dominated; this separates the three so
+# "humans" is meaningful and "AI agents" is visible (you want that one).
+read -r hum ai bots <<EOF
+$( { win "$WEB_LOG"; win "$API_LOG"; } | awk -F'"' '
+  { split($1,a," "); ip=a[1]; u=tolower($6)
+    if (u ~ /gptbot|claudebot|claude-web|chatgpt|oai-searchbot|perplexitybot|ccbot|google-extended|bytespider|amazonbot|anthropic|cohere|diffbot|youbot|meta-external|applebot/) { if(!(ip in A)){A[ip]; ai++} }
+    else if (u ~ /bot|crawl|spider|slurp|scrap|recordedfuture|facebookexternal|monitor|uptime|curl|wget|python-requests|go-http|libwww|headlesschrome|semrush|ahrefs|petalbot|dataforseo|feedfetcher|archive\.org/) { if(!(ip in B)){B[ip]; b++} }
+    else { if(!(ip in H)){H[ip]; h++} } }
+  END { printf "%d %d %d", h+0, ai+0, b+0 }' )
+EOF
+echo "1. Visitors (human)         : ${hum:-0}   (AI agents ${ai:-0} · other bots ${bots:-0})"
 
 # 2 — Intent: downloads + download-page conversion
 dls=$(   win "$WEB_LOG" | n 'GET /download/CommonSense-[^ ]+\.dmg .* (200|206) ')
