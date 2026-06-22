@@ -1,7 +1,50 @@
 # Traffic & download analytics
 
 How we measure visits and downloads for commonsc.io — and why it's done the way
-it is.
+it is. **If you only read one section, read the next one.**
+
+## Weekly routine (from your Mac, ~5 minutes)
+
+Everything runs itself on the box (daily download tally + a Monday-morning KPI
+snapshot). Your job is to read it once a week and pick **one** action. From your
+laptop:
+
+**1. Read this week's snapshot** — the cron appends it every Monday 09:00:
+```sh
+ssh github_commonsc-marketplace@commonsc.io 'tail -n 30 /srv/commonsc/analytics/weekly-reports.log'
+```
+For the live "right now" numbers instead of the last cron run:
+```sh
+ssh github_commonsc-marketplace@commonsc.io '/srv/commonsc/deploy/analytics/weekly-report.sh'
+```
+
+**2. Glance at the download trend** (last fortnight):
+```sh
+ssh github_commonsc-marketplace@commonsc.io 'column -s, -t /srv/commonsc/analytics/downloads.csv | tail -15'
+```
+
+**3. Revenue** → your **Stripe dashboard** + the payment notifications you
+already receive. Deliberately not on the box.
+
+**4. Search reach** → **Google Search Console** (impressions, clicks, queries) —
+the one acquisition signal the server logs can't show.
+
+**5. Decide one thing.** See what moved, pick a single action for the week:
+
+| What you see | What it means → do |
+|---|---|
+| visitors up, downloads flat | pitch problem → tighten the download page |
+| downloads up, **catalog-opens** flat | install friction / first-run let-down |
+| opens up, **no purchases** (Stripe) | value or price — is the £2.99 report worth it? |
+| everything up, submissions flat | contributor loop too hard to find |
+| flat across the board | acquisition — you need to drive traffic |
+
+The number that matters most is **paid purchases** (Stripe), then **catalog
+opens** (people actually using it). Downloads and visitors are upstream of those
+— necessary, not sufficient. No ego: a busy site with zero purchases is a
+clearer signal than a quiet one with two.
+
+---
 
 ## Principle: server-side only
 
