@@ -107,6 +107,7 @@ async function main(): Promise<void> {
           // 1. Pyodide is a fresh interpreter for this sidecar invocation, but
           //    the FS layer is shared across run commands within one process.
           //    A unique mount point per run keeps modules from leaking.
+          emit({ type: "progress", percent: 0.6, label: "Loading algorithm" });
           const mountPoint = `/algorithm/${crypto.randomUUID()}`;
           await mountBundleInto(pyodide, cmd.bundleDir, mountPoint);
 
@@ -128,6 +129,7 @@ async function main(): Promise<void> {
           // algorithm can iterate. The return value's .toJs() unwraps nested
           // PyProxy containers into plain JS so JSON.stringify works.
           const pyInput = pyodide.toPy(cmd.variantSet);
+          emit({ type: "progress", percent: 0.8, label: "Running analysis" });
           let raw: unknown;
           try {
             raw = fn(pyInput);
@@ -150,6 +152,7 @@ async function main(): Promise<void> {
             }
             return raw;
           })();
+          emit({ type: "progress", percent: 0.95, label: "Finalising" });
           emit({ type: "result", value });
         } catch (err) {
           emit({ type: "error", message: `algorithm threw: ${String(err)}` });

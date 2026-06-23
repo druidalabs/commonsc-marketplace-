@@ -67,6 +67,15 @@ pub struct SidecarConfig {
     pub allow_read: Option<Vec<PathBuf>>,
 }
 
+/// An event surfaced by the sidecar (or synthesised by the host) while a run is
+/// in flight. Forwarded to a caller-supplied sink so the desktop app can turn
+/// them into user-visible progress; non-consumers pass a no-op.
+#[derive(Debug, Clone)]
+pub enum HostEvent {
+    Progress { percent: f32, label: Option<String> },
+    Log { level: String, message: String },
+}
+
 impl Default for SidecarConfig {
     fn default() -> Self {
         let script = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sidecar/run.ts");
@@ -173,6 +182,20 @@ impl Sidecar {
         function: &str,
         variant_set: serde_json::Value,
     ) -> Result<serde_json::Value, SidecarError> {
+        self.run_with_events(bundle_dir, module, function, variant_set, &mut |_| {})
+    }
+
+    /// Like [`run`](Self::run) but forwards each in-flight `progress`/`log`
+    /// event to `on_event` before blocking on the final result. The callback
+    /// runs on the calling thread, between reads, so it must not block for long.
+    pub fn run_with_events(
+        &mut self,
+        bundle_dir: &Path,
+        module: &str,
+        function: &str,
+        variant_set: serde_json::Value,
+        on_event: &mut dyn FnMut(HostEvent),
+    ) -> Result<serde_json::Value, SidecarError> {
         self.send(&HostCommand::Run {
             bundle_dir: bundle_dir.to_string_lossy().to_string(),
             module: module.to_string(),
@@ -183,7 +206,13 @@ impl Sidecar {
             match self.read_event()? {
                 Event::Result { value } => return Ok(value),
                 Event::Error { message } => return Err(SidecarError::Algorithm(message)),
-                Event::Ready | Event::Progress { .. } | Event::Log { .. } => continue,
+                Event::Progress { percent, label } => {
+                    on_event(HostEvent::Progress { percent, label });
+                }
+                Event::Log { level, message } => {
+                    on_event(HostEvent::Log { level, message });
+                }
+                Event::Ready => continue,
             }
         }
     }
@@ -268,13 +297,41 @@ pub fn run_one(
 /// (bundle tempdir + the sidecar script's directory), overriding any the
 /// caller set, so callers only need to supply the paths.
 pub fn run_one_with_config(
-    mut cfg: SidecarConfig,
+    cfg: SidecarConfig,
     bundle_bytes: &[u8],
     expected_sha256: &str,
     module: &str,
     function: &str,
     variant_set: serde_json::Value,
 ) -> Result<serde_json::Value, SidecarError> {
+    run_one_with_config_events(
+        cfg,
+        bundle_bytes,
+        expected_sha256,
+        module,
+        function,
+        variant_set,
+        &mut |_| {},
+    )
+}
+
+/// Like [`run_one_with_config`] but forwards in-flight progress/log events to
+/// `on_event`. The host also synthesises a few coarse milestones around the
+/// stages the sidecar can't see (bundle verify, unpack, sandbox boot) so the
+/// caller has something to show before the algorithm's own events start.
+pub fn run_one_with_config_events(
+    mut cfg: SidecarConfig,
+    bundle_bytes: &[u8],
+    expected_sha256: &str,
+    module: &str,
+    function: &str,
+    variant_set: serde_json::Value,
+    on_event: &mut dyn FnMut(HostEvent),
+) -> Result<serde_json::Value, SidecarError> {
+    on_event(HostEvent::Progress {
+        percent: 0.05,
+        label: Some("Verifying bundle".into()),
+    });
     let computed = hex::encode(Sha256::digest(bundle_bytes));
     if !computed.eq_ignore_ascii_case(expected_sha256) {
         return Err(SidecarError::BundleHashMismatch {
@@ -282,6 +339,10 @@ pub fn run_one_with_config(
             computed,
         });
     }
+    on_event(HostEvent::Progress {
+        percent: 0.2,
+        label: Some("Starting sandbox".into()),
+    });
     let dir = TempDir::new().map_err(SidecarError::Io)?;
     unpack_bundle(bundle_bytes, dir.path())?;
 
@@ -297,7 +358,11 @@ pub fn run_one_with_config(
     }
     cfg.allow_read = Some(allow);
     let mut sidecar = Sidecar::spawn(cfg)?;
-    let result = sidecar.run(dir.path(), module, function, variant_set);
+    on_event(HostEvent::Progress {
+        percent: 0.45,
+        label: Some("Sandbox ready".into()),
+    });
+    let result = sidecar.run_with_events(dir.path(), module, function, variant_set, on_event);
     let _ = sidecar.shutdown();
     result
 }
@@ -317,16 +382,9 @@ fn unpack_bundle(bytes: &[u8], dest: &Path) -> Result<(), SidecarError> {
 enum Event {
     Ready,
     Result { value: serde_json::Value },
-    // Progress and Log are part of the bridge protocol but not yet routed to a
-    // consumer in this milestone; suppress unused-field noise rather than dropping
-    // them and re-adding next iteration.
-    Progress {
-        #[allow(dead_code)] percent: f32,
-        #[allow(dead_code)] label: Option<String>,
-    },
-    Log {
-        #[allow(dead_code)] level: String,
-        #[allow(dead_code)] message: String,
-    },
+    // Forwarded to the caller's event sink by `run_with_events`; the `hello`
+    // and plain `run` paths drain them.
+    Progress { percent: f32, label: Option<String> },
+    Log { level: String, message: String },
     Error { message: String },
 }
