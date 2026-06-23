@@ -67,8 +67,36 @@
         { "$ref": "#/$defs/ScoreBlock" },
         { "$ref": "#/$defs/TableBlock" },
         { "$ref": "#/$defs/DistributionBlock" },
+        { "$ref": "#/$defs/BarsBlock" },
         { "$ref": "#/$defs/CalloutBlock" }
       ]
+    },
+    "BarsBlock": {
+      "title": "BarsBlock",
+      "description": "A categorical bar chart — one bar per label (e.g. variant count per chromosome). The host renders heights relative to the max; a zero value shows as a faint stub so gaps stay visible.",
+      "type": "object",
+      "required": ["kind", "bars"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "bars" },
+        "title": { "type": "string" },
+        "unit": { "type": "string" },
+        "bars": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "required": ["label", "value"],
+            "additionalProperties": false,
+            "properties": {
+              "label": { "type": "string" },
+              "value": { "type": "number", "minimum": 0 },
+              "tone": { "$ref": "#/$defs/Tone" }
+            }
+          }
+        }
+      }
     },
     "RowsBlock": {
       "title": "RowsBlock",
