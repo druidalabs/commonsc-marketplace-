@@ -13,5 +13,5 @@
   "input": { "schemaRef": "genomic-io.schema.json#/$defs/VariantSet", "referenceBuild": "GRCh38" },
   "output": { "schemaRef": "result.schema.json#/$defs/Result" },
   "supportedKinds": ["23andme"],
-  "publisher": { "handle": "druidalabs", "name": "Druid Labs (test)", "keyId": "druidalabs-2026-01" }
+  "publisher": { "handle": "druidalabs", "name": "DruidaLabs (test)", "keyId": "druidalabs-2026-01" }
 }

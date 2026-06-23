@@ -16,7 +16,7 @@
     "progress": false
   },
   "category": "appearance",
-  "checksum": "e298d58857d137be3107a32af3041f4c658c91f5be1f1dd8f710bc711caa4296",
+  "checksum": "c338f1bb2febaef09e5f8ce7a2eb75b017101a6b0efc2e548d67d6dac37cbffa",
   "entrypoint": {
     "function": "compute",
     "module": "prs_height.main"
@@ -24,6 +24,16 @@
   "id": "druidalabs/prs-height",
   "input": {
     "referenceBuild": "GRCh38",
+    "requiredRsids": [
+      "rs143384",
+      "rs2871865",
+      "rs7639425",
+      "rs6060369",
+      "rs2230754",
+      "rs6440003",
+      "rs1208",
+      "rs10946808"
+    ],
     "schemaRef": "genomic-io.schema.json#/$defs/VariantSet"
   },
   "license": "Apache-2.0",
@@ -41,7 +51,7 @@
   "publisher": {
     "handle": "druidalabs",
     "keyId": "druidalabs-2026-01",
-    "name": "Druid Labs",
+    "name": "DruidaLabs",
     "url": "https://commonsc.io"
   },
   "requirements": {
@@ -54,12 +64,12 @@
     "marketplace": {
       "alg": "ed25519",
       "keyId": "commonsc-marketplace-2026-01",
-      "value": "8P2Ew2Jp4UDzljoOrXpbw/Ra/dNm3E55W1mA2b6tgn1opJ2Gve0LNongNLvOr0Dmhn76NwkTnb+YEiOPIcj8Dw=="
+      "value": "fRcVOAKTG0YBF9+wJ4mjNVGIVf4+q0wvQUom+SaylQz6gfyMN689SiYnF4nTwXDK0KXevadMyz+zvxQW3v9yDA=="
     },
     "publisher": {
       "alg": "ed25519",
       "keyId": "druidalabs-2026-01",
-      "value": "WwIR2E1wINWWJLrB2CeREBS+0mNRFkTRd0yCCq1D3g5fX19wFBXP1TknSbGkQ2aiQoUk3S0ZbcPgY8WH/QbACw=="
+      "value": "vBgxp+cOVJSDe5P6MX8rdzFBnvjU/HpEMk6OPnbJ2hQT19co9KZaV/FM9pyW5PI5JzOlsyEG53ZvDldgfB/eDw=="
     }
   },
   "sourceUrl": "https://github.com/commonsc/algorithms/tree/main/prs-height",
