@@ -21,3 +21,8 @@ zstd.workspace = true
 tar.workspace = true
 tempfile.workspace = true
 hex.workspace = true
+
+# Watchdog SIGKILL for the run wall-clock timeout (kill-by-pid from another
+# thread; std has no portable equivalent). Unix-only — targets are macOS + Linux.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"

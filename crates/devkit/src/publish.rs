@@ -250,6 +250,13 @@ fn build_artifact(project: &Path) -> Result<Vec<u8>> {
     Ok(compressed)
 }
 
+/// The runtime bundle bytes (tar.zst, dev-only files stripped) — exactly what
+/// ships to a consumer. Exposed so `devkit run` executes the *same* artifact a
+/// user would install, not the project tree.
+pub fn build_runtime_bundle(project: &Path) -> Result<Vec<u8>> {
+    build_artifact(project)
+}
+
 fn build_tar(project: &Path) -> Result<Vec<u8>> {
     // Runtime-bundle exclude list — `is_excluded` strips dev-only files.
     build_tar_with_filter(project, is_excluded)

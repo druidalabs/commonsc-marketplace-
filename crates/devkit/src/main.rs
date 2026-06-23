@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 
-use commonsc_devkit::{init, publish, register, validate};
+use commonsc_devkit::{init, publish, register, run, validate};
 
 // Module implementations live under `src/lib.rs` so the marketplace HTTP
 // service can call the same validate/publish gate code without duplicating it.
@@ -101,6 +101,24 @@ enum Cmd {
         /// `manifest.template.json` and the entrypoint module).
         project: PathBuf,
     },
+    /// Build the runtime bundle and execute it locally against a fixture through
+    /// the Deno + Pyodide sandbox, then check the result envelope conforms to
+    /// the Result schema. Requires `deno` on PATH. Exits non-zero if the
+    /// algorithm throws, times out, or returns a non-conforming result.
+    Run {
+        /// Path to the algorithm project directory.
+        project: PathBuf,
+        /// Fixture VariantSet to run against. Defaults to `fixtures/input.json`.
+        #[arg(long)]
+        fixture: Option<PathBuf>,
+        /// Override the wall-clock limit (seconds). Defaults to the Tier-1 30s.
+        #[arg(long)]
+        timeout_secs: Option<u64>,
+        /// Emit a machine-readable JSON verdict (for agents) instead of the
+        /// human report.
+        #[arg(long)]
+        json: bool,
+    },
     /// Bundle the project and either (a) write to a local registry, or (b)
     /// upload to a live marketplace's review queue.
     ///
@@ -178,6 +196,20 @@ fn main() -> Result<()> {
             })?;
             report.print();
             if report.outcome.is_fail() {
+                std::process::exit(1);
+            }
+            Ok(())
+        }
+        Cmd::Run { project, fixture, timeout_secs, json } => {
+            let outcome = run::run(run::RunOptions {
+                project: project.clone(),
+                fixture,
+                timeout_secs,
+                json,
+            })
+            .with_context(|| format!("run failed for {}", project.display()))?;
+            outcome.print();
+            if !outcome.passed {
                 std::process::exit(1);
             }
             Ok(())

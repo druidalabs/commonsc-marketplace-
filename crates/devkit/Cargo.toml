@@ -31,3 +31,7 @@ hex.workspace = true
 base64.workspace = true
 ureq.workspace = true
 dirs.workspace = true
+
+# Shares the Tier-1 runtime so `devkit run` executes a bundle through the exact
+# same Deno + Pyodide sidecar the desktop app and (later) the marketplace gate use.
+commonsc-host = { path = "../host" }

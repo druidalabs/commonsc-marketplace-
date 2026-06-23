@@ -10,5 +10,6 @@ pub mod init;
 pub mod manifest;
 pub mod publish;
 pub mod register;
+pub mod run;
 pub mod signing;
 pub mod validate;

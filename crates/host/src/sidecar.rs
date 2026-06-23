@@ -9,6 +9,10 @@
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::thread;
+use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -22,6 +26,9 @@ pub enum SidecarError {
 
     #[error("sidecar exited before it became ready")]
     EarlyExit,
+
+    #[error("algorithm exceeded the {seconds}s wall-clock limit and was killed")]
+    Timeout { seconds: u64 },
 
     #[error("sidecar stdio pipe disappeared")]
     BrokenPipe,
@@ -65,6 +72,11 @@ pub struct SidecarConfig {
     /// production runs; the cli `hello` debug path leaves it `None` because
     /// it doesn't unpack a bundle.
     pub allow_read: Option<Vec<PathBuf>>,
+    /// Hard wall-clock limit for a single run. When the algorithm outlives it,
+    /// the sidecar is SIGKILLed and the run returns [`SidecarError::Timeout`].
+    /// Defaults to the Tier-1 ceiling (30s). `None` disables the limit (the run
+    /// can block forever — only sensible for trusted local debugging).
+    pub wall_timeout: Option<Duration>,
 }
 
 /// An event surfaced by the sidecar (or synthesised by the host) while a run is
@@ -84,6 +96,7 @@ impl Default for SidecarConfig {
             script,
             deno_dir: None,
             allow_read: None,
+            wall_timeout: Some(Duration::from_secs(30)),
         }
     }
 }
@@ -182,18 +195,26 @@ impl Sidecar {
         function: &str,
         variant_set: serde_json::Value,
     ) -> Result<serde_json::Value, SidecarError> {
-        self.run_with_events(bundle_dir, module, function, variant_set, &mut |_| {})
+        self.run_with_events(bundle_dir, module, function, variant_set, None, &mut |_| {})
     }
 
     /// Like [`run`](Self::run) but forwards each in-flight `progress`/`log`
-    /// event to `on_event` before blocking on the final result. The callback
-    /// runs on the calling thread, between reads, so it must not block for long.
+    /// event to `on_event` before blocking on the final result, and enforces an
+    /// optional wall-clock `timeout`. The callback runs on the calling thread,
+    /// between reads, so it must not block for long.
+    ///
+    /// Timeout enforcement: a watchdog thread SIGKILLs the sidecar once `timeout`
+    /// elapses, which closes its stdout and unblocks the read loop; the
+    /// resulting EOF is then reported as [`SidecarError::Timeout`] rather than
+    /// `EarlyExit`. Off Unix the kill is a no-op (targets are macOS + Linux), so
+    /// the limit is advisory there.
     pub fn run_with_events(
         &mut self,
         bundle_dir: &Path,
         module: &str,
         function: &str,
         variant_set: serde_json::Value,
+        timeout: Option<Duration>,
         on_event: &mut dyn FnMut(HostEvent),
     ) -> Result<serde_json::Value, SidecarError> {
         self.send(&HostCommand::Run {
@@ -202,19 +223,58 @@ impl Sidecar {
             function: function.to_string(),
             variant_set,
         })?;
-        loop {
-            match self.read_event()? {
-                Event::Result { value } => return Ok(value),
-                Event::Error { message } => return Err(SidecarError::Algorithm(message)),
-                Event::Progress { percent, label } => {
+
+        let timed_out = Arc::new(AtomicBool::new(false));
+        let done = Arc::new(AtomicBool::new(false));
+        let watchdog = timeout.map(|limit| {
+            let timed_out = Arc::clone(&timed_out);
+            let done = Arc::clone(&done);
+            let pid = self.child.id();
+            thread::spawn(move || {
+                let start = Instant::now();
+                while start.elapsed() < limit {
+                    if done.load(Ordering::Acquire) {
+                        return;
+                    }
+                    thread::sleep(Duration::from_millis(50));
+                }
+                if !done.load(Ordering::Acquire) {
+                    timed_out.store(true, Ordering::Release);
+                    kill_pid(pid);
+                }
+            })
+        });
+
+        let result = loop {
+            match self.read_event() {
+                Ok(Event::Result { value }) => break Ok(value),
+                Ok(Event::Error { message }) => break Err(SidecarError::Algorithm(message)),
+                Ok(Event::Progress { percent, label }) => {
                     on_event(HostEvent::Progress { percent, label });
                 }
-                Event::Log { level, message } => {
+                Ok(Event::Log { level, message }) => {
                     on_event(HostEvent::Log { level, message });
                 }
-                Event::Ready => continue,
+                Ok(Event::Ready) => {}
+                Err(e) => {
+                    break Err(if timed_out.load(Ordering::Acquire) {
+                        SidecarError::Timeout {
+                            seconds: timeout.map(|d| d.as_secs()).unwrap_or(0),
+                        }
+                    } else {
+                        e
+                    });
+                }
             }
+        };
+
+        // Signal the watchdog to stand down and reap it before returning, so a
+        // late SIGKILL can't land on the next run's process.
+        done.store(true, Ordering::Release);
+        if let Some(w) = watchdog {
+            let _ = w.join();
         }
+        result
     }
 
     /// Ask the sidecar to exit cleanly; the child should reap promptly. If it
@@ -357,14 +417,35 @@ pub fn run_one_with_config_events(
         allow.push(parent.to_path_buf());
     }
     cfg.allow_read = Some(allow);
+    // Capture before `cfg` is consumed by spawn.
+    let timeout = cfg.wall_timeout;
     let mut sidecar = Sidecar::spawn(cfg)?;
     on_event(HostEvent::Progress {
         percent: 0.45,
         label: Some("Sandbox ready".into()),
     });
-    let result = sidecar.run_with_events(dir.path(), module, function, variant_set, on_event);
+    let result =
+        sidecar.run_with_events(dir.path(), module, function, variant_set, timeout, on_event);
     let _ = sidecar.shutdown();
     result
+}
+
+/// SIGKILL a child by pid from the watchdog thread. SIGKILL can't be caught, so
+/// the child dies promptly and its stdout closes, unblocking the run loop's
+/// blocking read.
+#[cfg(unix)]
+fn kill_pid(pid: u32) {
+    // SAFETY: a bare kill(2) syscall with an integer pid we own. Worst case the
+    // pid was already reaped and the call no-ops with ESRCH.
+    unsafe {
+        libc::kill(pid as libc::pid_t, libc::SIGKILL);
+    }
+}
+
+#[cfg(not(unix))]
+fn kill_pid(_pid: u32) {
+    // No portable kill-by-pid off Unix. Targets are macOS + Linux; on other
+    // platforms the wall-clock limit is advisory (the read stays blocked).
 }
 
 fn unpack_bundle(bytes: &[u8], dest: &Path) -> Result<(), SidecarError> {

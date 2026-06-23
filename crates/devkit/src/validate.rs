@@ -191,6 +191,23 @@ pub fn run(project: &Path) -> Result<Report> {
     Ok(Report { checks, outcome })
 }
 
+/// Validate an algorithm's output envelope against
+/// `result.schema.json#/$defs/Result`, resolving inner `$ref`s through the same
+/// embedded-schema resolver the manifest/fixture gates use. Returns the list of
+/// conformance errors (empty ⇒ valid). Used by `devkit run` to fail a local
+/// test whose result wouldn't render in the app.
+pub fn result_envelope_errors(result: &Value) -> Result<Vec<String>> {
+    let wrapper = json!({
+        "$ref": "https://commonsc.io/schemas/result.schema.json#/$defs/Result"
+    });
+    let compiled = JSONSchema::options()
+        .with_draft(jsonschema::Draft::Draft202012)
+        .with_resolver(LocalResolver::new())
+        .compile(&wrapper)
+        .map_err(|e| anyhow!("compiling Result ref: {e}"))?;
+    Ok(collect_errors(&compiled, result))
+}
+
 /// Eagerly drain a JSONSchema validation into owned strings, freeing the
 /// borrow on the instance before the caller's match arms run.
 fn collect_errors(schema: &JSONSchema, instance: &Value) -> Vec<String> {
