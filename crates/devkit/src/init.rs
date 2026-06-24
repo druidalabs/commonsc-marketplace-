@@ -58,7 +58,14 @@ pub fn run(opts: InitOptions) -> Result<InitSummary> {
     let display_name = opts.name.clone().unwrap_or_else(|| title_case(&algo_slug));
     let category = validate_category(&opts.category)?;
     let rsid = opts.rsid.unwrap_or_else(|| "rs1234567".to_string());
-    let key_id = format!("{publisher_handle}-2026-01");
+    // Prefer the keyId the marketplace actually issued at registration (stored
+    // in credentials); fall back to the conventional handle-derived id for
+    // unregistered scaffolding. This is what the publisher signature is keyed
+    // to, so guessing it wrong would fail server verification.
+    let key_id = match crate::register::load(None) {
+        Ok(Some(creds)) if creds.handle == publisher_handle => creds.key_id,
+        _ => format!("{publisher_handle}-2026-01"),
+    };
 
     fs::create_dir_all(&opts.dir)
         .with_context(|| format!("creating project dir {}", opts.dir.display()))?;

@@ -394,14 +394,31 @@ pub async fn approve(
         Err(e) => return redirect_to_admin_with(&format!("locate project: {}", e.message)),
     };
 
-    // Run the publish pipeline — bundles the project, signs with the dev
-    // marketplace key, writes manifest.json + bundle.tar.zst into the
-    // registry, and appends the index entry. We pass the registry path
-    // explicitly because publish::run's auto-detect walks up from the project
-    // directory looking for a `commonsc/` folder — and the project is in a
-    // tempdir under /tmp, where that walk dead-ends.
+    // Promote to the catalog. The publisher already signed the manifest at
+    // submit time and we verified it then; reuse that *real* signature here and
+    // only add the marketplace co-sign — the server never fabricates a
+    // publisher signature. Pre-Phase-B submissions (no stored signature) fall
+    // back to the legacy dev-signing path. We pass the registry explicitly
+    // because the project lives in a tempdir where the auto-detect walk
+    // dead-ends.
     let registry = state.workspace.join("registry");
-    let result = commonsc_devkit::publish::run(&project_root, Some(&registry));
+    let publisher_key_id = record_value
+        .get("publisher_key_id")
+        .and_then(Value::as_str)
+        .filter(|s| !s.is_empty());
+    let publisher_sig = record_value
+        .get("publisher_sig")
+        .and_then(Value::as_str)
+        .filter(|s| !s.is_empty());
+    let result = match (publisher_key_id, publisher_sig) {
+        (Some(kid), Some(sig)) => commonsc_devkit::publish::publish_with_signoff(
+            &project_root,
+            Some(&registry),
+            kid,
+            sig,
+        ),
+        _ => commonsc_devkit::publish::run(&project_root, Some(&registry)),
+    };
     match result {
         Ok(entry) => {
             // Update the submission record's status to approved.

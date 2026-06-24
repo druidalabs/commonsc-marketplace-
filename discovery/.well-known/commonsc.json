@@ -51,18 +51,18 @@
       "algorithmsValidate": {
         "method": "POST",
         "path": "/algorithms/validate",
-        "auth": "bearer",
+        "auth": "none",
         "responseSchemaRef": "https://api.commonsc.io/schemas/gate-result.schema.json"
       },
       "algorithmsPublish": {
         "method": "POST",
         "path": "/algorithms/publish",
-        "auth": "bearer"
+        "auth": "ed25519-signature"
       },
       "algorithmsStatus": {
         "method": "GET",
         "path": "/algorithms/{submissionId}/status",
-        "auth": "bearer"
+        "auth": "none"
       },
       "catalogIndex": {
         "method": "GET",
@@ -78,9 +78,9 @@
     }
   },
   "authentication": {
-    "scheme": "ed25519-keypair",
+    "scheme": "ed25519-signature",
     "registration": "https://commonsc.io/publisher/register",
-    "tokenForm": "JWT signed with publisher private key, 1h TTL, iss=keyId, aud=api.commonsc.io"
+    "form": "Per submission: sign the canonical manifest (checksum + signatures blanked) with your registered ed25519 private key and send it as the `x-commonsc-publisher-sig` header alongside `x-commonsc-key-id`. The marketplace verifies it against the public key you registered and rejects anything that doesn't match."
   },
   "fixtures": {
     "syntheticVariantSet23andme": "https://api.commonsc.io/fixtures/synthetic-23andme.json",

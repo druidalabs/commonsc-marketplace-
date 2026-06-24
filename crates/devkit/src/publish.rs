@@ -38,89 +38,204 @@ pub struct ManifestSummary {
     pub version: String,
 }
 
-pub fn run(project: &Path, registry_override: Option<&Path>) -> Result<Entry> {
-    // 1. Validate first — refuse to publish a bundle whose template doesn't pass.
-    let report = crate::validate::run(project)?;
-    if report.outcome.is_fail() {
-        report.print();
-        return Err(anyhow!("validate failed; publish aborted"));
-    }
+/// Everything needed to sign + write a manifest, derived once so the local
+/// publish, the client-side remote signature, and the server-side co-sign all
+/// agree on the exact canonical bytes. `manifest` has the artifact set but not
+/// the checksum or signatures; `canonical` is what every signature is over.
+pub struct Prepared {
+    pub manifest: Value,
+    pub canonical: Vec<u8>,
+    pub bundle: Vec<u8>,
+    pub id: String,
+    pub version: String,
+    pub publisher_handle: String,
+    pub publisher_key_id: String,
+}
 
-    // 2. Resolve registry path. Default is `<repo>/commonsc/registry/` where
-    //    `<repo>` is the parent of the workspace root, discovered by walking up
-    //    from the project until we find a Cargo workspace.
-    let registry_root = registry_override
-        .map(PathBuf::from)
-        .map(Ok)
-        .unwrap_or_else(|| default_registry_root(project))?;
-    fs::create_dir_all(&registry_root)
-        .with_context(|| format!("creating registry root at {}", registry_root.display()))?;
-
+/// Build the runtime bundle and complete the manifest's artifact fields. Shared
+/// by every path that needs the canonical bytes. Deterministic: the same
+/// project yields the same bundle hash and canonical bytes on any machine, which
+/// is what lets the publisher sign client-side and the server verify.
+pub fn prepare(project: &Path) -> Result<Prepared> {
     let manifest_template = crate::manifest::read_template(project)?;
     let id = crate::manifest::id(&manifest_template)?.to_string();
     let version = crate::manifest::version(&manifest_template)?.to_string();
     let publisher_handle = crate::manifest::publisher_handle(&manifest_template)?.to_string();
     let publisher_key_id = crate::manifest::publisher_key_id(&manifest_template)?.to_string();
-    let algo_handle = id
+
+    let bundle = build_artifact(project)?;
+    let sha = hex::encode(Sha256::digest(&bundle));
+    let mut manifest = manifest_template;
+    crate::manifest::set_artifact(&mut manifest, ARTIFACT_MEDIA_TYPE, bundle.len() as u64, &sha);
+    let canonical = crate::manifest::canonical_with_blanks(&manifest);
+
+    Ok(Prepared { manifest, canonical, bundle, id, version, publisher_handle, publisher_key_id })
+}
+
+/// Stamp the checksum + both signatures onto a prepared manifest and write the
+/// bundle, manifest, and index entry into the registry.
+fn finalize_and_write(
+    mut prep: Prepared,
+    registry_root: &Path,
+    publisher_sig: &str,
+    marketplace_key_id: &str,
+    marketplace_sig: &str,
+) -> Result<Entry> {
+    let algo_handle = prep
+        .id
         .splitn(2, '/')
         .nth(1)
-        .ok_or_else(|| anyhow!("manifest.id {id} is not in publisher/algo form"))?
+        .ok_or_else(|| anyhow!("manifest.id {} is not in publisher/algo form", prep.id))?
         .to_string();
-
     let bundle_dir = registry_root
         .join("bundles")
-        .join(&publisher_handle)
+        .join(&prep.publisher_handle)
         .join(&algo_handle)
-        .join(&version);
+        .join(&prep.version);
     fs::create_dir_all(&bundle_dir)
         .with_context(|| format!("creating bundle dir at {}", bundle_dir.display()))?;
 
-    // 3. Build the artifact. tar the project (minus excluded entries), pipe
-    //    through zstd, write to disk.
-    let artifact_path = bundle_dir.join("bundle.tar.zst");
-    let artifact_bytes = build_artifact(project)?;
-    fs::write(&artifact_path, &artifact_bytes)
-        .with_context(|| format!("writing artifact at {}", artifact_path.display()))?;
-    let artifact_sha = hex::encode(Sha256::digest(&artifact_bytes));
+    fs::write(bundle_dir.join("bundle.tar.zst"), &prep.bundle)
+        .with_context(|| format!("writing artifact in {}", bundle_dir.display()))?;
 
-    // 4. Complete the manifest: artifact, checksum, signatures.
-    let mut manifest = manifest_template;
-    crate::manifest::set_artifact(
-        &mut manifest,
-        ARTIFACT_MEDIA_TYPE,
-        artifact_bytes.len() as u64,
-        &artifact_sha,
-    );
-
-    let canonical = crate::manifest::canonical_with_blanks(&manifest);
-    let checksum = hex::encode(Sha256::digest(&canonical));
-    crate::manifest::set_checksum(&mut manifest, &checksum);
-
-    let publisher_sig = crate::signing::sign(&publisher_key_id, &canonical)
-        .ok_or_else(|| anyhow!("no dev signing key for keyId {publisher_key_id}"))?;
-    let marketplace_sig = crate::signing::sign(MARKETPLACE_KEY_ID, &canonical)
-        .ok_or_else(|| anyhow!("no dev signing key for {MARKETPLACE_KEY_ID}"))?;
+    let checksum = hex::encode(Sha256::digest(&prep.canonical));
+    crate::manifest::set_checksum(&mut prep.manifest, &checksum);
     crate::manifest::set_signatures(
-        &mut manifest,
-        &publisher_key_id,
-        &publisher_sig,
-        MARKETPLACE_KEY_ID,
-        &marketplace_sig,
+        &mut prep.manifest,
+        &prep.publisher_key_id,
+        publisher_sig,
+        marketplace_key_id,
+        marketplace_sig,
     );
 
-    // 5. Write the final manifest.
-    let manifest_path = bundle_dir.join("manifest.json");
-    let manifest_pretty = serde_json::to_string_pretty(&manifest)? + "\n";
-    fs::write(&manifest_path, &manifest_pretty)
-        .with_context(|| format!("writing manifest at {}", manifest_path.display()))?;
+    let manifest_pretty = serde_json::to_string_pretty(&prep.manifest)? + "\n";
+    fs::write(bundle_dir.join("manifest.json"), &manifest_pretty)
+        .with_context(|| format!("writing manifest in {}", bundle_dir.display()))?;
 
-    // 6. Update (or create) the registry index.
-    update_index(&registry_root, &manifest, &bundle_dir)?;
-
+    update_index(registry_root, &prep.manifest, &bundle_dir)?;
     Ok(Entry {
-        manifest: ManifestSummary { id, version },
+        manifest: ManifestSummary { id: prep.id, version: prep.version },
         registry_dir: bundle_dir,
     })
+}
+
+fn resolve_registry(project: &Path, registry_override: Option<&Path>) -> Result<PathBuf> {
+    let root = registry_override
+        .map(PathBuf::from)
+        .map(Ok)
+        .unwrap_or_else(|| default_registry_root(project))?;
+    fs::create_dir_all(&root)
+        .with_context(|| format!("creating registry root at {}", root.display()))?;
+    Ok(root)
+}
+
+/// Local publish to a registry directory. Signs the publisher slot with the
+/// registered key when local credentials match the manifest's keyId, else with
+/// the forgeable dev key (offline authoring). The marketplace co-sign uses the
+/// real key from `COMMONSC_MARKETPLACE_PRIVATE_KEY` when set (so we can publish
+/// the embedded registry for real), else the dev key.
+pub fn run(project: &Path, registry_override: Option<&Path>) -> Result<Entry> {
+    let report = crate::validate::run(project)?;
+    if report.outcome.is_fail() {
+        report.print();
+        return Err(anyhow!("validate failed; publish aborted"));
+    }
+    let registry_root = resolve_registry(project, registry_override)?;
+    let prep = prepare(project)?;
+
+    let publisher_sig = match crate::register::load(None)? {
+        Some(creds) if creds.key_id == prep.publisher_key_id => {
+            crate::signing::sign_with_secret(&creds.private_key, &prep.canonical)?
+        }
+        _ => crate::signing::sign_dev(&prep.publisher_key_id, &prep.canonical),
+    };
+    let marketplace_sig = marketplace_cosign(&prep.canonical)?;
+    finalize_and_write(prep, &registry_root, &publisher_sig, MARKETPLACE_KEY_ID, &marketplace_sig)
+}
+
+/// Compute the marketplace co-signature over `canonical`. Uses the real
+/// server-held key from `COMMONSC_MARKETPLACE_PRIVATE_KEY` (base64 of the
+/// 32-byte seed) when present; otherwise the forgeable dev key, so local and
+/// CI flows keep working without the production secret.
+pub fn marketplace_cosign(canonical: &[u8]) -> Result<String> {
+    match std::env::var("COMMONSC_MARKETPLACE_PRIVATE_KEY") {
+        Ok(secret) if !secret.trim().is_empty() => {
+            crate::signing::sign_with_secret(secret.trim(), canonical)
+        }
+        _ => Ok(crate::signing::sign_dev(MARKETPLACE_KEY_ID, canonical)),
+    }
+}
+
+/// Client-side: sign the manifest with the publisher's registered private key,
+/// for upload to the live marketplace. Requires credentials and that they match
+/// the manifest's keyId.
+pub struct RemoteSignature {
+    pub key_id: String,
+    pub handle: String,
+    pub signature_b64: String,
+}
+
+pub fn sign_for_remote(project: &Path) -> Result<RemoteSignature> {
+    let prep = prepare(project)?;
+    let creds = crate::register::load(None)?
+        .ok_or_else(|| anyhow!("not registered — run `commonsc-devkit register` first"))?;
+    if creds.key_id != prep.publisher_key_id {
+        return Err(anyhow!(
+            "manifest publisher.keyId ({}) doesn't match your credentials ({}). \
+             Re-scaffold with your handle or fix manifest.publisher.",
+            prep.publisher_key_id,
+            creds.key_id
+        ));
+    }
+    let signature_b64 = crate::signing::sign_with_secret(&creds.private_key, &prep.canonical)?;
+    Ok(RemoteSignature { key_id: creds.key_id, handle: creds.handle, signature_b64 })
+}
+
+/// Server-side (publish): verify a client-provided publisher signature over the
+/// project's canonical manifest against the publisher's registered public key.
+/// This is the auth gate — a forged or dev-signed manifest fails here.
+pub fn verify_remote_signature(
+    project: &Path,
+    publisher_key_id: &str,
+    public_key_b64: &str,
+    sig_b64: &str,
+) -> Result<()> {
+    let prep = prepare(project)?;
+    if prep.publisher_key_id != publisher_key_id {
+        return Err(anyhow!(
+            "manifest publisher.keyId ({}) doesn't match the asserted keyId ({})",
+            prep.publisher_key_id,
+            publisher_key_id
+        ));
+    }
+    if !crate::signing::verify(public_key_b64, &prep.canonical, sig_b64) {
+        return Err(anyhow!(
+            "publisher signature does not verify against the registered key for {publisher_key_id}"
+        ));
+    }
+    Ok(())
+}
+
+/// Server-side (approval): write the bundle to the registry using a publisher
+/// signature that has *already been verified* (never re-signed here — the
+/// server has no publisher private key) and a fresh marketplace co-sign.
+pub fn publish_with_signoff(
+    project: &Path,
+    registry_override: Option<&Path>,
+    publisher_key_id: &str,
+    publisher_sig_b64: &str,
+) -> Result<Entry> {
+    let registry_root = resolve_registry(project, registry_override)?;
+    let prep = prepare(project)?;
+    if prep.publisher_key_id != publisher_key_id {
+        return Err(anyhow!(
+            "manifest publisher.keyId ({}) doesn't match the verified submission keyId ({})",
+            prep.publisher_key_id,
+            publisher_key_id
+        ));
+    }
+    let marketplace_sig = marketplace_cosign(&prep.canonical)?;
+    finalize_and_write(prep, &registry_root, publisher_sig_b64, MARKETPLACE_KEY_ID, &marketplace_sig)
 }
 
 // ── Remote publish (POST to a live marketplace) ─────────────────────────
@@ -166,13 +281,20 @@ pub fn run_remote(project: &Path, api: &str) -> Result<RemoteSubmission> {
     // exercise the gates. The reviewer's eventual approve step builds the
     // slimmer runtime bundle from this archive (same `build_artifact` used
     // by local publish).
+    // Sign the manifest with the registered private key *before* upload — the
+    // server verifies this against the publisher's stored pubkey and rejects
+    // anything it can't (forged, dev-signed, or wrong key). This is the auth
+    // gate; the publisher private key never leaves the machine.
+    let signed = sign_for_remote(project)?;
+
     let archive = build_project_archive(project)?;
     let url = format!("{}/algorithms/publish", api.trim_end_matches('/'));
 
     println!(
-        "uploading {} bytes to {} …",
+        "uploading {} bytes to {} (signed as {}) …",
         archive.len(),
         url,
+        signed.key_id,
     );
 
     let response = ureq::post(&url)
@@ -182,6 +304,8 @@ pub fn run_remote(project: &Path, api: &str) -> Result<RemoteSubmission> {
             "user-agent",
             concat!("commonsc-devkit/", env!("CARGO_PKG_VERSION")),
         )
+        .set("x-commonsc-key-id", &signed.key_id)
+        .set("x-commonsc-publisher-sig", &signed.signature_b64)
         .send_bytes(&archive);
 
     let body: Value = match response {
@@ -412,6 +536,59 @@ fn now_millis() -> i64 {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_millis() as i64)
         .unwrap_or(0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use base64::engine::general_purpose::STANDARD as B64;
+    use base64::Engine as _;
+    use ed25519_dalek::SigningKey;
+    use rand::rngs::OsRng;
+
+    fn example_project() -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../algorithms/eye-colour")
+    }
+
+    #[test]
+    fn prepare_is_deterministic() {
+        let p = example_project();
+        let a = prepare(&p).expect("prepare a");
+        let b = prepare(&p).expect("prepare b");
+        assert_eq!(a.canonical, b.canonical, "canonical bytes must be reproducible");
+        assert_eq!(a.bundle.len(), b.bundle.len(), "bundle must be reproducible");
+    }
+
+    #[test]
+    fn publisher_signature_round_trips_and_rejects_forgeries() {
+        let p = example_project();
+        let prep = prepare(&p).expect("prepare");
+        let sk = SigningKey::generate(&mut OsRng);
+        let priv_b64 = B64.encode(sk.to_bytes());
+        let pub_b64 = B64.encode(sk.verifying_key().to_bytes());
+
+        // Client signs; server verifies via the exact call it makes.
+        let sig = crate::signing::sign_with_secret(&priv_b64, &prep.canonical).unwrap();
+        assert!(
+            verify_remote_signature(&p, &prep.publisher_key_id, &pub_b64, &sig).is_ok(),
+            "a real signature must verify against the registered key"
+        );
+
+        // A different key must be rejected.
+        let other = SigningKey::generate(&mut OsRng);
+        let other_pub = B64.encode(other.verifying_key().to_bytes());
+        assert!(
+            verify_remote_signature(&p, &prep.publisher_key_id, &other_pub, &sig).is_err(),
+            "wrong key must be rejected"
+        );
+
+        // A forgeable dev signature must be rejected — the whole point of B.
+        let dev_sig = crate::signing::sign_dev(&prep.publisher_key_id, &prep.canonical);
+        assert!(
+            verify_remote_signature(&p, &prep.publisher_key_id, &pub_b64, &dev_sig).is_err(),
+            "dev-signed manifest must be rejected by the real-key verifier"
+        );
+    }
 }
 
 fn default_registry_root(project: &Path) -> Result<PathBuf> {

@@ -204,6 +204,54 @@ These are currently misleading and independent of the feature work:
 Both the publisher‑identity claim and the consumer‑facing "verified before it
 runs" claim become real in Phase B. The deterministic dev signer is retired.
 
+**What B must undo (discovered during B1).** Today the server *fabricates* the
+publisher signature: `admin::approve` runs `publish::run`, which signs **both**
+the publisher and marketplace signatures with forgeable dev keys — the
+publisher's private key never participates — and remote publish uploads the raw
+*project*, not a signed manifest. So B is a restructure, not a key swap: the
+publisher must complete and sign the manifest **client-side** at publish time;
+the server only *verifies* it and adds its *own* co-sign at approval.
+
+B sub-slices:
+- **B1 ✅ — crypto foundation.** Real `sign_with_secret` / `verify` (round-trip
+  tested) in `signing.rs`; the dev signer is quarantined as `sign_dev` /
+  `public_key_dev` (forgeable, local/offline only — the server must reject it).
+  Local `publish::run` now signs the publisher sig with the registered key when
+  credentials match the manifest's keyId.
+- **B2 ✅ — client-side signing on remote publish.** `publish --remote` builds
+  the runtime bundle, completes the manifest, and signs the canonical bytes with
+  the registered private key (`sign_for_remote`), sending it as the
+  `x-commonsc-key-id` + `x-commonsc-publisher-sig` headers. `init.rs` now reads
+  the keyId from credentials. **Auth is the manifest signature** — the bearer
+  JWT is deferred (request-level hardening, lower value given the signature
+  already binds publisher identity to the artifact; revisit if replay becomes a
+  concern).
+- **B3 ✅ — server verification.** `publish_handler` looks up the publisher's
+  registered pubkey (`publishers/{handle}.json`, keyId asserted) and verifies the
+  manifest signature over the reproducibly-rebuilt canonical bytes
+  (`verify_remote_signature`); **dev-signed / forged / wrong-key submissions are
+  rejected (401)**. The verified signature is stored on the submission.
+- **B4 ✅ — approve co-signs only.** `approve` reuses the stored, verified
+  publisher signature (never re-fabricates it) and adds the marketplace co-sign
+  via `marketplace_cosign` — a real server-held key from
+  `COMMONSC_MARKETPLACE_PRIVATE_KEY` when set, else the dev key.
+  Round-trip + forgery-rejection unit-tested against a real example manifest.
+- **B5 — app verifies both signatures.** *Blocked on two decisions (below), not
+  code.* Wire real ed25519 verification into `catalog.ts verifyManifest`
+  (currently only checks the signature is plausibly base64), pinning the
+  marketplace pubkey and verifying the publisher sig against a trusted source.
+  Prerequisites:
+  1. **Marketplace keypair provisioning** — generate the production marketplace
+     ed25519 keypair, set the private half as `COMMONSC_MARKETPLACE_PRIVATE_KEY`
+     on the API box, **re-publish the embedded registry** co-signed with it, and
+     pin the public half in the app. Until then the embedded/dev registry is
+     dev-co-signed; flipping strict verification first would break the live app.
+  2. **Publisher keys trust source** — a `keys.json` (keyId→pubkey) served by the
+     marketplace from `publishers/` and loaded by the app during catalog pull,
+     so the app can verify *community* publisher signatures (first-party keys can
+     be embedded). Use a JS ed25519 verifier (e.g. `@noble/ed25519`) — WebCrypto
+     Ed25519 isn't available on the macOS 12/13 WKWebView the app still targets.
+
 **Publisher identity (devkit + server).**
 - `devkit register` already generates a real ed25519 keypair (OsRng) and stores
   it at `~/.commonsc/credentials.json`; the server stores the pubkey at
@@ -326,3 +374,23 @@ it's on a user's machine. Fixes, in priority order:
    env/flag gate. (Discoverability vs. consumer‑surface cleanliness.)
 2. Does `devkit run` rebuild every invocation, or cache by content hash for a
    fast iterate loop?
+
+## Gaps beyond the phased work (not yet scheduled)
+
+Surfaced in the contributor-UX review — bigger than open decisions, not yet on
+the A–F track.
+
+- **Contributor payout / revenue share.** A third party can publish a *paid*
+  report (pricing in `registry/index.json`, Stripe checkout), but all revenue
+  accrues to DruidaLabs — there is no payout to the author. "Marketplace" implies
+  sellers get paid; today they don't. Needs a payee identity per publisher
+  (Stripe Connect or equivalent), a split/ledger, payout scheduling, and
+  tax/KYC. Must be decided before promoting third-party *paid* publishing; free
+  contributions are unaffected.
+- **Devkit distribution.** The toolkit is build-from-source Rust
+  (`cargo build -p commonsc-devkit`), and `devkit run` additionally needs Deno.
+  No released binary, no `npm`/`pipx`/`brew`, no hosted runner — the single
+  biggest practical barrier for an agent (or human) landing cold. Needs prebuilt
+  signed binaries per platform (GitHub Releases) + a one-line installer, deno
+  vendored the way the desktop app bundles it, or a hosted "submit project, we
+  build + run" endpoint so the local toolchain is optional.

@@ -325,6 +325,16 @@ struct SubmissionRecord {
     /// Path (relative to workspace) to the saved project tar.zst awaiting
     /// review.
     project_archive: String,
+    /// Phase B: the verified publisher identity + signature over the canonical
+    /// manifest. Carried to approval so the co-sign step reuses the *real*
+    /// publisher signature instead of fabricating one. `serde(default)` keeps
+    /// pre-Phase-B records readable.
+    #[serde(default)]
+    publisher_key_id: String,
+    #[serde(default)]
+    publisher_handle: String,
+    #[serde(default)]
+    publisher_sig: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
@@ -340,6 +350,10 @@ async fn publish_handler(
     State(state): State<AppState>,
     req: Request,
 ) -> Result<Json<Value>, ApiError> {
+    // Auth headers must be captured before the body is consumed.
+    let key_id_hdr = req_header(&req, "x-commonsc-key-id");
+    let sig_hdr = req_header(&req, "x-commonsc-publisher-sig");
+
     let (raw_archive, project_dir) = extract_bundle(req).await?;
     let project_root = locate_project_root(project_dir.path())?;
     let report = commonsc_devkit::validate::run(&project_root)
@@ -359,6 +373,37 @@ async fn publish_handler(
     let manifest_version = commonsc_devkit::manifest::version(&manifest)
         .map_err(|e| ApiError::client(format!("manifest version: {e}")))?
         .to_string();
+    let publisher_handle = commonsc_devkit::manifest::publisher_handle(&manifest)
+        .map_err(|e| ApiError::client(format!("manifest publisher.handle: {e}")))?
+        .to_string();
+    let publisher_key_id = commonsc_devkit::manifest::publisher_key_id(&manifest)
+        .map_err(|e| ApiError::client(format!("manifest publisher.keyId: {e}")))?
+        .to_string();
+
+    // ── Auth: the publisher must have signed this manifest with the private
+    //    key registered to its handle. A missing, forged, dev-signed, or
+    //    wrong-key signature is rejected here — nothing reaches the queue
+    //    without proving publisher identity. ─────────────────────────────────
+    let key_id_hdr = key_id_hdr.ok_or_else(|| {
+        ApiError::unauthorized(
+            "missing x-commonsc-key-id — submit with `commonsc-devkit publish --remote`".into(),
+        )
+    })?;
+    let sig_hdr = sig_hdr
+        .ok_or_else(|| ApiError::unauthorized("missing x-commonsc-publisher-sig".into()))?;
+    if key_id_hdr != publisher_key_id {
+        return Err(ApiError::unauthorized(format!(
+            "header keyId `{key_id_hdr}` doesn't match manifest publisher.keyId `{publisher_key_id}`"
+        )));
+    }
+    let pubkey = load_publisher_pubkey(&state, &publisher_handle, &publisher_key_id)?;
+    commonsc_devkit::publish::verify_remote_signature(
+        &project_root,
+        &publisher_key_id,
+        &pubkey,
+        &sig_hdr,
+    )
+    .map_err(|e| ApiError::unauthorized(format!("publisher signature rejected: {e}")))?;
 
     let submission_id = generate_submission_id();
     let bundle_sha = hex::encode(Sha256::digest(&raw_archive));
@@ -381,6 +426,9 @@ async fn publish_handler(
         submitted_at: now_millis(),
         bundle_sha256: bundle_sha,
         project_archive: archive_rel,
+        publisher_key_id,
+        publisher_handle,
+        publisher_sig: sig_hdr,
     };
 
     let record_path = state
@@ -587,6 +635,42 @@ fn now_millis() -> i64 {
         .unwrap_or(0)
 }
 
+fn req_header(req: &Request, name: &str) -> Option<String> {
+    req.headers()
+        .get(name)
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+/// Look up a registered publisher's ed25519 public key (base64), asserting the
+/// stored keyId matches the one being claimed. `handle` is validated as a safe
+/// slug first, so it can't escape the `publishers/` directory.
+fn load_publisher_pubkey(
+    state: &AppState,
+    handle: &str,
+    key_id: &str,
+) -> std::result::Result<String, ApiError> {
+    if !is_valid_handle(handle) {
+        return Err(ApiError::client(format!("invalid publisher handle `{handle}`")));
+    }
+    let path = state.workspace.join("publishers").join(format!("{handle}.json"));
+    let raw = std::fs::read_to_string(&path)
+        .map_err(|_| ApiError::unauthorized(format!("publisher `{handle}` is not registered")))?;
+    let rec: Value = serde_json::from_str(&raw)
+        .map_err(|e| ApiError::server(format!("corrupt publisher record: {e}")))?;
+    let stored_key_id = rec.get("keyId").and_then(Value::as_str).unwrap_or_default();
+    if stored_key_id != key_id {
+        return Err(ApiError::unauthorized(format!(
+            "keyId `{key_id}` is not the active key for `{handle}`"
+        )));
+    }
+    rec.get("pubkey")
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .ok_or_else(|| ApiError::server("publisher record missing pubkey".into()))
+}
+
 fn is_safe_id(s: &str) -> bool {
     !s.is_empty()
         && s.len() < 80
@@ -618,6 +702,12 @@ impl ApiError {
     pub(crate) fn not_found(message: String) -> Self {
         ApiError {
             status: StatusCode::NOT_FOUND,
+            message,
+        }
+    }
+    pub(crate) fn unauthorized(message: String) -> Self {
+        ApiError {
+            status: StatusCode::UNAUTHORIZED,
             message,
         }
     }
