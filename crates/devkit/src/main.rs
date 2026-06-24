@@ -101,6 +101,11 @@ enum Cmd {
         /// `manifest.template.json` and the entrypoint module).
         project: PathBuf,
     },
+    /// Generate a fresh ed25519 keypair, printed as base64 in the exact format
+    /// the signer/verifier use (32-byte seed / 32-byte public key). Use it to
+    /// mint the marketplace co-signing key. The private key is a secret — set it
+    /// as COMMONSC_MARKETPLACE_PRIVATE_KEY; never commit it.
+    Keygen,
     /// Build the runtime bundle and execute it locally against a fixture through
     /// the Deno + Pyodide sandbox, then check the result envelope conforms to
     /// the Result schema. Requires `deno` on PATH. Exits non-zero if the
@@ -198,6 +203,16 @@ fn main() -> Result<()> {
             if report.outcome.is_fail() {
                 std::process::exit(1);
             }
+            Ok(())
+        }
+        Cmd::Keygen => {
+            use base64::Engine as _;
+            let sk = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+            let b64 = base64::engine::general_purpose::STANDARD;
+            println!("PRIVATE (secret — set as COMMONSC_MARKETPLACE_PRIVATE_KEY, never commit):");
+            println!("  {}", b64.encode(sk.to_bytes()));
+            println!("PUBLIC (safe to share / pin in the app):");
+            println!("  {}", b64.encode(sk.verifying_key().to_bytes()));
             Ok(())
         }
         Cmd::Run { project, fixture, timeout_secs, json } => {
