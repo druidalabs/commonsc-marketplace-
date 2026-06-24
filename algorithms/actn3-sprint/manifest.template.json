@@ -1,0 +1,58 @@
+{
+  "blurb": "Sprinter or stayer? rs1815739 in ACTN3 — the fast-twitch muscle gene — leans power vs endurance. Trait curiosity, not a verdict.",
+  "capabilities": {
+    "fsRead": [
+      "/input"
+    ],
+    "fsWrite": [
+      "/output"
+    ],
+    "network": false,
+    "progress": false
+  },
+  "category": "motion",
+  "entrypoint": {
+    "function": "compute",
+    "module": "actn3_sprint.main"
+  },
+  "id": "druidalabs/actn3-sprint",
+  "input": {
+    "referenceBuild": "GRCh38",
+    "schemaRef": "genomic-io.schema.json#/$defs/VariantSet"
+  },
+  "license": "Apache-2.0",
+  "lockfile": {
+    "dependencies": [],
+    "interpreter": {
+      "name": "pyodide",
+      "version": "0.26.2"
+    }
+  },
+  "name": "Muscle fibre type (ACTN3)",
+  "output": {
+    "schemaRef": "result.schema.json#/$defs/Result"
+  },
+  "publisher": {
+    "handle": "druidalabs",
+    "keyId": "druidalabs-2026-01",
+    "name": "DruidaLabs",
+    "url": "https://commonsc.io"
+  },
+  "requirements": {
+    "diskMiB": 4,
+    "memoryMiB": 128,
+    "wallSeconds": 10
+  },
+  "schemaVersion": "2",
+  "sourceUrl": "https://github.com/druidalabs/commonsc-marketplace-/tree/main/algorithms/actn3-sprint",
+  "supportedKinds": [
+    "23andme",
+    "ancestry",
+    "myheritage",
+    "livingdna",
+    "vcf",
+    "vcf-gz"
+  ],
+  "tier": "pyodide",
+  "version": "0.1.0"
+}

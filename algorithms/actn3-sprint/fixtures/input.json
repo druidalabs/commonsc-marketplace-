@@ -1,0 +1,13 @@
+{
+  "fileKind": "23andme",
+  "referenceBuild": "GRCh38",
+  "sampleId": "fixture-actn3_sprint",
+  "variants": [
+    {
+      "chrom": "11",
+      "genotype": "CT",
+      "position": 1,
+      "rsid": "rs1815739"
+    }
+  ]
+}
