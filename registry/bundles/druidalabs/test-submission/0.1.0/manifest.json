@@ -1,10 +1,10 @@
 {
   "artifact": {
     "mediaType": "application/vnd.commonsc.pyodide-bundle.tar+zstd",
-    "sha256": "8753cb9d0f5fda978717778df07b4302cd195ae70e5a31b48eafe5ec48062e07",
-    "size": 1267
+    "sha256": "0ce5cbbddb62cbf6cde7b71961f0bd45b28790d0e6580c91a1855d118ec4b40a",
+    "size": 1166
   },
-  "blurb": "Can you smell asparagus pee? rs4481887 in the OR2M7 olfactory receptor cluster — about a quarter of people can't.",
+  "blurb": "smoke test of the live publish loop",
   "capabilities": {
     "fsRead": [
       "/input"
@@ -15,13 +15,13 @@
     "network": false,
     "progress": false
   },
-  "category": "senses",
-  "checksum": "fa48ad4c06f1f97449a0be82eb0b238bb4400207b052265e9849bc38363aefae",
+  "category": "motion",
+  "checksum": "705a65ad0e51ceb43b0babcf77f8d95f522feb129bd0b305a975b04bc3194eea",
   "entrypoint": {
     "function": "compute",
-    "module": "asparagus_odour.main"
+    "module": "test_submission.main"
   },
-  "id": "commonsc/asparagus-odour",
+  "id": "druidalabs/test-submission",
   "input": {
     "referenceBuild": "GRCh38",
     "schemaRef": "genomic-io.schema.json#/$defs/VariantSet"
@@ -34,13 +34,13 @@
       "version": "0.26.2"
     }
   },
-  "name": "Asparagus odour detection",
+  "name": "Test Submission",
   "output": {
     "schemaRef": "result.schema.json#/$defs/Result"
   },
   "publisher": {
-    "handle": "commonsc",
-    "keyId": "commonsc-2026-01",
+    "handle": "druidalabs",
+    "keyId": "druidalabs-2026-01",
     "name": "CommonSense Reference",
     "url": "https://commonsc.io"
   },
@@ -54,15 +54,15 @@
     "marketplace": {
       "alg": "ed25519",
       "keyId": "commonsc-marketplace-2026-01",
-      "value": "Ax376iVIzhojAY+CkqT0VDaRy2BVErs9ef4WrDTwR+WzlmsyZi/B4EZKdYMWAfegi9/vL5k3ED0zPsKlrStHAw=="
+      "value": "Quds8kwzV3/cOgtHA1WKH7ki2yOyC9gLFkT0HI1F+VG6HgsBAm8yDUQTeEfJ5e93nlhU0xnugbMpBWm9SfVJBg=="
     },
     "publisher": {
       "alg": "ed25519",
-      "keyId": "commonsc-2026-01",
-      "value": "YVfDM2SFSpUkCz5AzdntLFyq92Qs9fGWIcVUEoDemUgS1H/8iUhOdHOsJJntobpQ4ZTvOnfQlpIcu6NIUI/WCw=="
+      "keyId": "druidalabs-2026-01",
+      "value": "XU2pZ9T4BL+pqnYQizOMLq84eeK6+fvHz5W+oNznJMkmK5d15o9BThuA67p/XAJs165wnLPwgXuYlJe586wBCg=="
     }
   },
-  "sourceUrl": "https://github.com/commonsc/algorithms/tree/main/asparagus_odour",
+  "sourceUrl": "https://github.com/commonsc/algorithms/tree/main/test_submission",
   "supportedKinds": [
     "23andme",
     "ancestry",
