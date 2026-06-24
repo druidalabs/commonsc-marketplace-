@@ -28,6 +28,8 @@ on:
       - 'Cargo.lock'
       - 'deploy/**'
       - 'registry/**'
+      - 'discovery/**'
+      - 'product/schemas/**'
       - '.github/workflows/deploy-marketplace.yml'
   # Allow a manual run from the Actions tab.
   workflow_dispatch: {}

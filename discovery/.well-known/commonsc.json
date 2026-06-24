@@ -48,11 +48,6 @@
         "auth": "none",
         "responseSchemaRef": "https://api.commonsc.io/schemas/api/publisher-register.response.schema.json"
       },
-      "algorithmsInit": {
-        "method": "POST",
-        "path": "/algorithms/init",
-        "auth": "bearer"
-      },
       "algorithmsValidate": {
         "method": "POST",
         "path": "/algorithms/validate",
@@ -95,7 +90,8 @@
   "docs": {
     "humanGuide": "https://commonsc.io/contribute",
     "machineGuide": "https://commonsc.io/llms.txt",
-    "examples": "https://github.com/commonsc/algorithms"
+    "blockGallery": "https://commonsc.io/blocks.html",
+    "examples": "https://github.com/druidalabs/commonsc-marketplace-/tree/main/algorithms"
   },
   "review": {
     "queue": "human-in-the-loop",

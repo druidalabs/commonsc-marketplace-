@@ -33,17 +33,20 @@ imitate.
    publish under (e.g. `myhandle/my-algorithm`).
 
 3. **Scaffold a project.** Either:
-   - Hit `POST /algorithms/init` with your tier and a working name, and you
-     get a scaffold URL — a tar.zst with manifest template, entrypoint stub,
-     and fixture. OR
-   - Read the published examples at `https://github.com/commonsc/algorithms`
+   - Run `commonsc-devkit init` to generate a project locally — manifest
+     template, entrypoint stub, and a synthetic fixture. OR
+   - Read the published examples at
+     `https://github.com/druidalabs/commonsc-marketplace-/tree/main/algorithms`
      and copy a similar one.
 
 4. **Build locally.** Author the entrypoint module against the declared
    input schema (`genomicIo.schema.json#/$defs/VariantSet`) and return the
    declared output schema (`result.schema.json#/$defs/Result`). The synthetic
-   fixtures listed in `discovery.fixtures` are valid VariantSets — test your
-   code against them before submitting.
+   fixtures listed in `discovery.fixtures` are valid VariantSets. Test your
+   code against them before submitting with `commonsc-devkit run <project>` —
+   it executes your bundle in the real Tier-1 sandbox and checks the result
+   envelope, exiting non-zero if it throws, times out, or returns a
+   non-conforming Result.
 
 5. **Validate.** `POST /algorithms/validate` with your bundle (multipart, or
    base64 in JSON; both accepted). You get back a `gate-result.schema.json`
@@ -101,7 +104,9 @@ imitate.
   `random.seed(0)` (or numpy equivalent) before any sampling.
 - **Match the result envelope exactly.** The renderer accepts only the
   closed set of block kinds: `rows`, `score`, `table`, `distribution`,
-  `callout`. Inventing a new kind is a contract-conformance failure.
+  `callout`, `bars`. See each one rendered next to its example JSON at
+  https://commonsc.io/blocks.html. Inventing a new kind is a
+  contract-conformance failure.
 
 ## Schemas (the source of truth)
 
@@ -136,7 +141,8 @@ repo.
 
 ## Contact
 
-- Examples: https://github.com/commonsc/algorithms
+- Examples: https://github.com/druidalabs/commonsc-marketplace-/tree/main/algorithms
+- Block gallery: https://commonsc.io/blocks.html
 - Human guide: https://commonsc.io/contribute
 - Status: https://status.commonsc.io
 - Review policy: https://commonsc.io/review-policy
