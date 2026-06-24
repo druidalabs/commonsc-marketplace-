@@ -101,6 +101,27 @@ enum Cmd {
         /// `manifest.template.json` and the entrypoint module).
         project: PathBuf,
     },
+    /// Emit `keys.json` — the publisher keyId→pubkey trust source the app uses
+    /// to verify publisher signatures. Scans the registry's manifests; the
+    /// marketplace co-signing key is pinned in the app, not listed here.
+    Keys {
+        #[arg(long, default_value = "registry")]
+        registry: PathBuf,
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
+    /// Verify a published manifest's signatures. The marketplace co-sign is
+    /// checked against `--marketplace-pubkey` (the pinned key); the publisher
+    /// signature against `--publisher-pubkey` or, by default, the dev key
+    /// derived from its keyId. Exits non-zero if either fails.
+    Verify {
+        /// Path to a completed manifest.json (with artifact + signatures).
+        manifest: PathBuf,
+        #[arg(long)]
+        marketplace_pubkey: Option<String>,
+        #[arg(long)]
+        publisher_pubkey: Option<String>,
+    },
     /// Generate a fresh ed25519 keypair, printed as base64 in the exact format
     /// the signer/verifier use (32-byte seed / 32-byte public key). Use it to
     /// mint the marketplace co-signing key. The private key is a secret — set it
@@ -204,6 +225,83 @@ fn main() -> Result<()> {
                 std::process::exit(1);
             }
             Ok(())
+        }
+        Cmd::Keys { registry, out } => {
+            let index_path = registry.join("index.json");
+            let idx: serde_json::Value = serde_json::from_str(
+                &std::fs::read_to_string(&index_path)
+                    .with_context(|| format!("reading {}", index_path.display()))?,
+            )?;
+            let mut key_ids = std::collections::BTreeSet::new();
+            for e in idx.get("entries").and_then(|v| v.as_array()).cloned().unwrap_or_default() {
+                let Some(murl) = e.get("manifestUrl").and_then(|v| v.as_str()) else { continue };
+                let mpath = registry.join(murl.trim_start_matches("./"));
+                if let Ok(raw) = std::fs::read_to_string(&mpath) {
+                    if let Ok(m) = serde_json::from_str::<serde_json::Value>(&raw) {
+                        if let Some(kid) = m
+                            .get("publisher")
+                            .and_then(|p| p.get("keyId"))
+                            .and_then(|v| v.as_str())
+                        {
+                            key_ids.insert(kid.to_string());
+                        }
+                    }
+                }
+            }
+            let keys: Vec<serde_json::Value> = key_ids
+                .iter()
+                .map(|kid| {
+                    serde_json::json!({
+                        "keyId": kid,
+                        "alg": "ed25519",
+                        "publicKey": commonsc_devkit::signing::public_key_dev(kid),
+                    })
+                })
+                .collect();
+            let doc = serde_json::json!({ "schemaVersion": "1", "keys": keys });
+            let out = out.unwrap_or_else(|| registry.join("keys.json"));
+            std::fs::write(&out, serde_json::to_string_pretty(&doc)? + "\n")
+                .with_context(|| format!("writing {}", out.display()))?;
+            println!("wrote {} ({} publisher key(s))", out.display(), key_ids.len());
+            Ok(())
+        }
+        Cmd::Verify { manifest, marketplace_pubkey, publisher_pubkey } => {
+            let raw = std::fs::read_to_string(&manifest)
+                .with_context(|| format!("reading {}", manifest.display()))?;
+            let m: serde_json::Value = serde_json::from_str(&raw)
+                .with_context(|| format!("parsing {}", manifest.display()))?;
+            let canonical = commonsc_devkit::manifest::canonical_with_blanks(&m);
+            let sig_field = |role: &str, key: &str| -> String {
+                m.get("signatures")
+                    .and_then(|s| s.get(role))
+                    .and_then(|x| x.get(key))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default()
+                    .to_string()
+            };
+            let mut all_ok = true;
+            let mut check = |role: &str, pubkey: Option<String>| {
+                let key_id = sig_field(role, "keyId");
+                let value = sig_field(role, "value");
+                match pubkey {
+                    Some(pk) => {
+                        let ok = commonsc_devkit::signing::verify(&pk, &canonical, &value);
+                        println!("  {role:<12} keyId={key_id}  {}", if ok { "VERIFIED" } else { "FAILED" });
+                        all_ok &= ok;
+                    }
+                    None => println!("  {role:<12} keyId={key_id}  (no pubkey — skipped)"),
+                }
+            };
+            // Publisher defaults to the dev key derived from its keyId (embedded
+            // first-party items are dev-signed); override with --publisher-pubkey.
+            let pub_default = publisher_pubkey.clone().or_else(|| {
+                let kid = sig_field("publisher", "keyId");
+                (!kid.is_empty()).then(|| commonsc_devkit::signing::public_key_dev(&kid))
+            });
+            println!("verifying {}", manifest.display());
+            check("publisher", pub_default);
+            check("marketplace", marketplace_pubkey);
+            if all_ok { Ok(()) } else { std::process::exit(1); }
         }
         Cmd::Keygen => {
             use base64::Engine as _;

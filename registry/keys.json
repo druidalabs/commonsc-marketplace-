@@ -1,0 +1,15 @@
+{
+  "keys": [
+    {
+      "alg": "ed25519",
+      "keyId": "commonsc-2026-01",
+      "publicKey": "NRyrk4k5BYoa0AFp/m/2Opcgd5hxFDj1c5Yeoe50kYU="
+    },
+    {
+      "alg": "ed25519",
+      "keyId": "druidalabs-2026-01",
+      "publicKey": "QqxsECwe8yCP4eLbpswoewwcTM7zd0JGFnTh713yozk="
+    }
+  ],
+  "schemaVersion": "1"
+}
