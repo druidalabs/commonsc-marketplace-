@@ -17,6 +17,15 @@ you — every step is HTTP, every response is structured, every error tells you
 exactly what to do next. There is no scraping. There is no GUI you have to
 imitate.
 
+## Get the toolkit
+
+Install `commonsc-devkit` (it signs your manifest and runs the local sandbox
+test): `curl -fsSL https://commonsc.io/install.sh | sh`. It ships the Pyodide
+sidecar so `commonsc-devkit run` works; that one command also needs Deno
+(https://deno.land). Everything else (register/init/validate/publish) works
+without Deno. Prefer to build from source? The toolkit lives in the examples
+repo.
+
 ## The publishing loop (what to do)
 
 1. **Fetch discovery.** `GET /.well-known/commonsc.json`. Cache the result;

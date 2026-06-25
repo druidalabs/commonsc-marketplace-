@@ -1,0 +1,68 @@
+name: Release devkit
+
+# Cut contributor-toolkit binaries by pushing a tag:
+#   git tag devkit-v0.1.0 && git push origin devkit-v0.1.0
+#
+# Each target ships a tarball containing the `commonsc-devkit` binary plus a
+# `sidecar/` dir (run.ts + Pyodide node_modules) right next to it, so
+# `devkit run` works on a fresh machine that only has Deno installed. The
+# one-line installer (commonsc.io/install.sh) downloads + unpacks these.
+
+on:
+  push:
+    tags: ["devkit-v*"]
+
+permissions:
+  contents: write # create the release + upload assets
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            target: aarch64-apple-darwin
+          - os: macos-14
+            target: x86_64-apple-darwin
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Build devkit
+        run: cargo build --release -p commonsc-devkit --target ${{ matrix.target }}
+
+      - name: Vendor the sidecar (run.ts + Pyodide into node_modules)
+        working-directory: crates/host/sidecar
+        run: deno install || deno cache run.ts
+
+      - name: Assemble tarball
+        run: |
+          set -eu
+          NAME="commonsc-devkit-${{ matrix.target }}"
+          OUT="dist/$NAME"
+          mkdir -p "$OUT/sidecar"
+          cp "target/${{ matrix.target }}/release/commonsc-devkit" "$OUT/"
+          cp crates/host/sidecar/run.ts crates/host/sidecar/deno.json crates/host/sidecar/deno.lock "$OUT/sidecar/"
+          cp -R crates/host/sidecar/node_modules "$OUT/sidecar/"
+          tar -C dist -czf "$NAME.tar.gz" "$NAME"
+          if command -v sha256sum >/dev/null; then sha256sum "$NAME.tar.gz" > "$NAME.tar.gz.sha256";
+          else shasum -a 256 "$NAME.tar.gz" > "$NAME.tar.gz.sha256"; fi
+          ls -lh "$NAME.tar.gz"
+
+      - name: Publish to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            commonsc-devkit-${{ matrix.target }}.tar.gz
+            commonsc-devkit-${{ matrix.target }}.tar.gz.sha256

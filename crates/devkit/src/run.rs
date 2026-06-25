@@ -66,6 +66,29 @@ impl RunOutcome {
     }
 }
 
+/// Build the sidecar config, preferring assets shipped *next to the binary* —
+/// how the distributed tarball lays them out (`commonsc-devkit` + `sidecar/` +
+/// optional `deno`). Falls back to [`SidecarConfig::default`] (the in-repo
+/// sidecar) for `cargo run` during development.
+fn bundled_sidecar_config() -> SidecarConfig {
+    let mut cfg = SidecarConfig::default();
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            let script = dir.join("sidecar").join("run.ts");
+            if script.exists() {
+                cfg.script = script;
+            }
+            // A `deno` shipped alongside the binary takes precedence over PATH,
+            // so a fully self-contained tarball can include it later.
+            let deno = dir.join(if cfg!(windows) { "deno.exe" } else { "deno" });
+            if deno.exists() {
+                cfg.deno = deno;
+            }
+        }
+    }
+    cfg
+}
+
 pub fn run(opts: RunOptions) -> Result<RunOutcome> {
     let project = &opts.project;
     let manifest = crate::manifest::read_template(project)
@@ -105,7 +128,7 @@ pub fn run(opts: RunOptions) -> Result<RunOutcome> {
         }
     };
 
-    let mut cfg = SidecarConfig::default();
+    let mut cfg = bundled_sidecar_config();
     if let Some(secs) = opts.timeout_secs {
         cfg.wall_timeout = Some(Duration::from_secs(secs));
     }
