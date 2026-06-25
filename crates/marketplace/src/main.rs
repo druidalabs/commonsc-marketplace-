@@ -47,6 +47,12 @@ struct Cli {
     /// to the parent of this binary's manifest dir.
     #[arg(long)]
     workspace: Option<PathBuf>,
+    /// Where the live catalog (the registry served at /registry and written by
+    /// approvals) lives. Defaults to `<workspace>/registry`. In production this
+    /// points at a data dir *outside* the git checkout, so `git pull` deploys
+    /// can never clobber approved community items.
+    #[arg(long)]
+    registry_dir: Option<PathBuf>,
 }
 
 /// Shared state passed to every handler. Only the submissions write needs
@@ -54,6 +60,9 @@ struct Cli {
 #[derive(Clone)]
 pub(crate) struct AppState {
     pub(crate) workspace: PathBuf,
+    /// The live registry directory — served at /registry and written by
+    /// approvals. May be outside `workspace` (see `--registry-dir`).
+    pub(crate) registry_dir: PathBuf,
     pub(crate) submissions_lock: Arc<Mutex<()>>,
 }
 
@@ -72,7 +81,12 @@ async fn main() -> Result<()> {
     let workspace = resolve_workspace(cli.workspace)?;
     let discovery_dir = workspace.join("discovery");
     let schemas_dir = workspace.join("product/schemas");
-    let registry_dir = workspace.join("registry");
+    // The live registry can live outside the workspace (so deploys don't touch
+    // it). Default to <workspace>/registry for local/dev.
+    let registry_dir = cli
+        .registry_dir
+        .map(|p| p.canonicalize().unwrap_or(p))
+        .unwrap_or_else(|| workspace.join("registry"));
     let submissions_dir = workspace.join("submissions");
 
     sanity_check_path("discovery", &discovery_dir)?;
@@ -82,6 +96,7 @@ async fn main() -> Result<()> {
 
     let state = AppState {
         workspace: workspace.clone(),
+        registry_dir: registry_dir.clone(),
         submissions_lock: Arc::new(Mutex::new(())),
     };
 

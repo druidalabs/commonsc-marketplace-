@@ -401,7 +401,7 @@ pub async fn approve(
     // back to the legacy dev-signing path. We pass the registry explicitly
     // because the project lives in a tempdir where the auto-detect walk
     // dead-ends.
-    let registry = state.workspace.join("registry");
+    let registry = state.registry_dir.clone();
     let publisher_key_id = record_value
         .get("publisher_key_id")
         .and_then(Value::as_str)
