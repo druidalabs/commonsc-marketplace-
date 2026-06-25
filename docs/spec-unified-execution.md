@@ -387,10 +387,9 @@ the A–F track.
   (Stripe Connect or equivalent), a split/ledger, payout scheduling, and
   tax/KYC. Must be decided before promoting third-party *paid* publishing; free
   contributions are unaffected.
-- **Devkit distribution.** The toolkit is build-from-source Rust
-  (`cargo build -p commonsc-devkit`), and `devkit run` additionally needs Deno.
-  No released binary, no `npm`/`pipx`/`brew`, no hosted runner — the single
-  biggest practical barrier for an agent (or human) landing cold. Needs prebuilt
-  signed binaries per platform (GitHub Releases) + a one-line installer, deno
-  vendored the way the desktop app bundles it, or a hosted "submit project, we
-  build + run" endpoint so the local toolchain is optional.
+- **Devkit distribution — ✅ shipped (devkit-v0.1.1).** `devkit-v*` tags build
+  tarballs for macOS arm64/x64 + linux x64 (binary + bundled Pyodide sidecar so
+  `run` works), published to GitHub Releases; `curl -fsSL
+  https://commonsc.io/install.sh | sh` installs them. `run` still needs Deno on
+  PATH (documented). Deno itself isn't vendored yet, and there's no hosted
+  "submit project, we build+run" endpoint — both optional future conveniences.
