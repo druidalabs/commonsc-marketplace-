@@ -73,6 +73,10 @@ impl RunOutcome {
 fn bundled_sidecar_config() -> SidecarConfig {
     let mut cfg = SidecarConfig::default();
     if let Ok(exe) = std::env::current_exe() {
+        // current_exe() may hand back the symlink the installer created (macOS
+        // doesn't resolve it); canonicalize so we find the sidecar next to the
+        // *real* binary inside the unpacked tarball dir.
+        let exe = std::fs::canonicalize(&exe).unwrap_or(exe);
         if let Some(dir) = exe.parent() {
             let script = dir.join("sidecar").join("run.ts");
             if script.exists() {
