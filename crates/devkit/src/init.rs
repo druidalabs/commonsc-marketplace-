@@ -164,7 +164,11 @@ fn build_manifest(b: BuildManifest<'_>) -> Value {
         },
         "input": {
             "schemaRef": "genomic-io.schema.json#/$defs/VariantSet",
-            "referenceBuild": "GRCh38"
+            "referenceBuild": "GRCh38",
+            // Every rsID the algorithm reads. The host extracts exactly these
+            // from the user's genome and passes only them — declare ALL of them
+            // or they won't reach your code. Pre-filled with the scaffold rsID.
+            "requiredRsids": [b.rsid]
         },
         "output": {
             "schemaRef": "result.schema.json#/$defs/Result"
