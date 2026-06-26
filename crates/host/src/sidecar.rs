@@ -467,6 +467,30 @@ fn kill_pid(_pid: u32) {
     // platforms the wall-clock limit is advisory (the read stays blocked).
 }
 
+/// Run an algorithm straight from an unpacked project directory — no bundle
+/// bytes, hash check, or unpack. For local developer testing (the desktop app's
+/// "test a local bundle" surface): point the sandbox at a project dir and run
+/// its entrypoint. Only that dir and the sidecar's own dir are readable.
+pub fn run_dir_with_config_events(
+    mut cfg: SidecarConfig,
+    dir: &Path,
+    module: &str,
+    function: &str,
+    variant_set: serde_json::Value,
+    on_event: &mut dyn FnMut(HostEvent),
+) -> Result<serde_json::Value, SidecarError> {
+    let mut allow = vec![dir.to_path_buf()];
+    if let Some(parent) = cfg.script.parent() {
+        allow.push(parent.to_path_buf());
+    }
+    cfg.allow_read = Some(allow);
+    let timeout = cfg.wall_timeout;
+    let mut sidecar = Sidecar::spawn(cfg)?;
+    let result = sidecar.run_with_events(dir, module, function, variant_set, timeout, on_event);
+    let _ = sidecar.shutdown();
+    result
+}
+
 fn unpack_bundle(bytes: &[u8], dest: &Path) -> Result<(), SidecarError> {
     let decompressed = zstd::stream::decode_all(bytes)
         .map_err(|e| SidecarError::BundleUnpack(format!("zstd decode: {e}")))?;
