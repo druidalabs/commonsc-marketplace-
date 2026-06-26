@@ -10,7 +10,7 @@
 //! Requires `deno` on PATH and the host crate's in-repo sidecar (Pyodide). The
 //! run is wall-clock bounded by the host's Tier-1 default (30s).
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Context, Result};
@@ -66,6 +66,71 @@ impl RunOutcome {
     }
 }
 
+/// Verdict from the execution gate.
+pub enum GateOutcome {
+    Pass,
+    Fail(String),
+    /// Deno wasn't available, so the algorithm couldn't be run here. Treated as
+    /// non-failing: static-only validation still works offline, and the server
+    /// (where Deno is installed) enforces it for real.
+    Skipped(String),
+}
+
+/// Execute a project's bundle against its fixture in a hardened sandbox and
+/// judge it: must not throw, must finish within the wall-clock limit, and must
+/// return an envelope conforming to `result.schema.json`. The sidecar runs with
+/// a scrubbed environment (`clean_env`) so untrusted code can't read host
+/// secrets. This is the marketplace's execution gate.
+pub fn execution_gate(project: &Path) -> GateOutcome {
+    let manifest = match crate::manifest::read_template(project) {
+        Ok(m) => m,
+        Err(e) => return GateOutcome::Fail(format!("reading manifest: {e}")),
+    };
+    let entry = |field: &str| {
+        manifest
+            .get("entrypoint")
+            .and_then(|e| e.get(field))
+            .and_then(|v| v.as_str())
+            .map(str::to_string)
+    };
+    let (module, function) = match (entry("module"), entry("function")) {
+        (Some(m), Some(f)) => (m, f),
+        _ => return GateOutcome::Fail("manifest.entrypoint.module/function missing".into()),
+    };
+    let fixture = project.join("fixtures/input.json");
+    let variant_set: serde_json::Value = match std::fs::read_to_string(&fixture)
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+    {
+        Some(v) => v,
+        None => return GateOutcome::Fail(format!("missing or unparseable {}", fixture.display())),
+    };
+    let bundle = match crate::publish::build_runtime_bundle(project) {
+        Ok(b) => b,
+        Err(e) => return GateOutcome::Fail(format!("building bundle: {e}")),
+    };
+    let sha = hex::encode(Sha256::digest(&bundle));
+
+    let mut cfg = bundled_sidecar_config();
+    cfg.clean_env = true; // untrusted code — don't expose host env (e.g. signing keys)
+
+    match commonsc_host::sidecar::run_one_with_config_events(
+        cfg, &bundle, &sha, &module, &function, variant_set, &mut |_| {},
+    ) {
+        Ok(value) => match crate::validate::result_envelope_errors(&value) {
+            Ok(errs) if errs.is_empty() => GateOutcome::Pass,
+            Ok(errs) => GateOutcome::Fail(format!("result does not conform: {}", errs.join("; "))),
+            Err(e) => GateOutcome::Fail(format!("checking result envelope: {e}")),
+        },
+        Err(SidecarError::Spawn(_)) => GateOutcome::Skipped("Deno not on PATH".into()),
+        Err(SidecarError::Algorithm(m)) => GateOutcome::Fail(format!("algorithm raised: {m}")),
+        Err(SidecarError::Timeout { seconds }) => {
+            GateOutcome::Fail(format!("exceeded the {seconds}s wall-clock limit"))
+        }
+        Err(e) => GateOutcome::Fail(format!("sandbox error: {e}")),
+    }
+}
+
 /// Build the sidecar config, preferring assets shipped *next to the binary* —
 /// how the distributed tarball lays them out (`commonsc-devkit` + `sidecar/` +
 /// optional `deno`). Falls back to [`SidecarConfig::default`] (the in-repo
@@ -88,6 +153,15 @@ fn bundled_sidecar_config() -> SidecarConfig {
             if deno.exists() {
                 cfg.deno = deno;
             }
+        }
+    }
+    // Honour an explicit Deno cache dir. The marketplace box runs under
+    // systemd `ProtectHome=true`, so Deno's default `$HOME/.cache` is
+    // unwritable; pointing this at a ReadWritePaths data dir lets the execution
+    // gate boot there. Set on cfg (not the child env) so `clean_env` keeps it.
+    if let Ok(dir) = std::env::var("COMMONSC_DENO_DIR") {
+        if !dir.is_empty() {
+            cfg.deno_dir = Some(PathBuf::from(dir));
         }
     }
     cfg

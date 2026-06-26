@@ -183,6 +183,32 @@ pub fn run(project: &Path) -> Result<Report> {
         });
     }
 
+    // ── Check 4 — the algorithm actually runs and returns a valid envelope. ─
+    // The heavy gate: build the bundle, execute it against the fixture in the
+    // hardened sandbox, and require a conforming result. Skipped (non-failing)
+    // when Deno isn't present, so offline static validation still works; the
+    // server enforces it where Deno is installed.
+    match crate::run::execution_gate(project) {
+        crate::run::GateOutcome::Pass => checks.push(Check {
+            id: "execution",
+            title: "algorithm runs in the sandbox and returns a valid result".into(),
+            status: Status::Pass,
+            detail: None,
+        }),
+        crate::run::GateOutcome::Skipped(why) => checks.push(Check {
+            id: "execution",
+            title: "algorithm execution".into(),
+            status: Status::Pass,
+            detail: Some(format!("skipped — {why}")),
+        }),
+        crate::run::GateOutcome::Fail(why) => checks.push(Check {
+            id: "execution",
+            title: "algorithm runs in the sandbox and returns a valid result".into(),
+            status: Status::Fail,
+            detail: Some(why),
+        }),
+    }
+
     let outcome = if checks.iter().any(|c| c.status == Status::Fail) {
         Outcome::Fail
     } else {

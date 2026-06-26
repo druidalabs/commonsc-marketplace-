@@ -77,6 +77,13 @@ pub struct SidecarConfig {
     /// Defaults to the Tier-1 ceiling (30s). `None` disables the limit (the run
     /// can block forever — only sensible for trusted local debugging).
     pub wall_timeout: Option<Duration>,
+    /// When true, the sidecar is spawned with a scrubbed environment (only
+    /// PATH/HOME/TMPDIR + the Deno cache vars), so algorithm code running under
+    /// `--allow-env` can't read host secrets (e.g. the marketplace signing key)
+    /// out of the process environment. Set it whenever you execute untrusted
+    /// code — i.e. the marketplace's execution gate. Default false (the desktop
+    /// app runs the user's own chosen algorithms).
+    pub clean_env: bool,
 }
 
 /// An event surfaced by the sidecar (or synthesised by the host) while a run is
@@ -97,6 +104,7 @@ impl Default for SidecarConfig {
             deno_dir: None,
             allow_read: None,
             wall_timeout: Some(Duration::from_secs(30)),
+            clean_env: false,
         }
     }
 }
@@ -132,6 +140,17 @@ impl Sidecar {
             }
         };
         let mut command = Command::new(&cfg.deno);
+        // Untrusted-code path: start from an empty environment and re-add only
+        // what Deno/Pyodide need, so the algorithm can't read host secrets via
+        // `--allow-env`. Done before the `.env(...)` calls below so those win.
+        if cfg.clean_env {
+            command.env_clear();
+            for key in ["PATH", "HOME", "TMPDIR"] {
+                if let Ok(val) = std::env::var(key) {
+                    command.env(key, val);
+                }
+            }
+        }
         command
             .arg("run")
             .arg("--no-prompt")
