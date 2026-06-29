@@ -68,6 +68,12 @@
         "method": "GET",
         "path": "https://api.commonsc.io/registry/index.json",
         "auth": "none"
+      },
+      "evidenceLookup": {
+        "method": "GET",
+        "path": "/evidence?q={trait}",
+        "auth": "none",
+        "description": "GWAS Catalog evidence triage per trait — evidence_tier, ancestry portability, a real PubMed id to cite, and caveats. Query before authoring a test to ground it and pick a resolvable citation. NOTE: evidence triage, not clinical validity; `medical:true` flags disease/clinical/biomarker/pharmacogenomic traits, which are out of scope (CommonSense is trait/wellness/curiosity only)."
       }
     },
     "rateLimits": {

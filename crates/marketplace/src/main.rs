@@ -34,6 +34,7 @@ use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
 
 mod admin;
+mod evidence;
 mod payments;
 
 #[derive(Parser)]
@@ -64,6 +65,8 @@ pub(crate) struct AppState {
     /// approvals. May be outside `workspace` (see `--registry-dir`).
     pub(crate) registry_dir: PathBuf,
     pub(crate) submissions_lock: Arc<Mutex<()>>,
+    /// GWAS Catalog evidence index, served at /evidence. Read-only after load.
+    pub(crate) evidence: evidence::Index,
 }
 
 #[tokio::main]
@@ -88,6 +91,10 @@ async fn main() -> Result<()> {
         .map(|p| p.canonicalize().unwrap_or(p))
         .unwrap_or_else(|| workspace.join("registry"));
     let submissions_dir = workspace.join("submissions");
+    // The evidence index ships in the repo; allow an override for prod data dirs.
+    let evidence_path = std::env::var("COMMONSC_EVIDENCE_PATH")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| workspace.join("algorithms/raw/evidence_index.jsonl"));
 
     sanity_check_path("discovery", &discovery_dir)?;
     sanity_check_path("schemas", &schemas_dir)?;
@@ -98,6 +105,7 @@ async fn main() -> Result<()> {
         workspace: workspace.clone(),
         registry_dir: registry_dir.clone(),
         submissions_lock: Arc::new(Mutex::new(())),
+        evidence: Arc::new(evidence::load(&evidence_path)),
     };
 
     let cors = CorsLayer::new()
@@ -112,6 +120,7 @@ async fn main() -> Result<()> {
         .route("/algorithms/validate", post(validate_handler))
         .route("/algorithms/publish", post(publish_handler))
         .route("/algorithms/:submission_id/status", get(status_handler))
+        .route("/evidence", get(evidence::handler))
         .route("/admin", get(|| async { axum::response::Redirect::to("/admin/") }))
         .route("/admin/", get(admin::index))
         .route("/admin/submissions/:submission_id", get(admin::detail))

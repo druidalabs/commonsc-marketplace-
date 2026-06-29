@@ -1,0 +1,10 @@
+# Large GWAS source + research intermediates — regenerate locally, never commit.
+gwas-catalog-*.tsv
+trait_evidence.jsonl
+trait_evidence.csv
+trait_names.txt
+strong_european_only.jsonl
+
+# evidence_index.jsonl IS committed: it's the compact artefact the marketplace
+# serves at /evidence (built from the above by build_evidence_index.py).
+!evidence_index.jsonl

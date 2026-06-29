@@ -41,6 +41,16 @@ repo.
    You get back a `keyId` and a `handle`. The handle is the namespace you'll
    publish under (e.g. `myhandle/my-algorithm`).
 
+   **Ground it in evidence first.** `GET /evidence?q={trait}` returns GWAS
+   Catalog triage per trait: `tier` (strong/moderate/limited), ancestry
+   `portability`, a real `pmid` to cite, and `caveats`. Use it to (a) pick a
+   trait that actually has credible evidence, (b) get a PubMed id for the
+   mandatory `references` field — the publish gate RESOLVES every citation and
+   rejects fabricated ones, so cite the real `pmid`, not a guess, and (c) carry
+   the portability caveat into your result. Triage is NOT clinical validity;
+   `medical:true` traits (disease/clinical/biomarker/pharmacogenomic) are out of
+   scope — CommonSense is trait/wellness/curiosity only.
+
 3. **Scaffold a project.** Either:
    - Run `commonsc-devkit init` to generate a project locally — manifest
      template, entrypoint stub, and a synthetic fixture. OR
