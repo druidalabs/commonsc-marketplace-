@@ -420,6 +420,19 @@ async fn publish_handler(
     )
     .map_err(|e| ApiError::unauthorized(format!("publisher signature rejected: {e}")))?;
 
+    // ── References gate: every citation must resolve. pubmed/doi are checked
+    //    for existence, snpedia/clinvar/url for reachability. This is what
+    //    keeps fabricated (incl. AI-hallucinated) sources out of the queue —
+    //    run after auth so we don't spend network on forged submissions. ─────
+    let ref_failures = unresolvable_references(&manifest).await;
+    if !ref_failures.is_empty() {
+        return Ok(Json(json!({
+            "status": "references-failed",
+            "errors": ref_failures,
+            "message": "Every citation must resolve to a real source. Fix or remove the listed references and resubmit.",
+        })));
+    }
+
     let submission_id = generate_submission_id();
     let bundle_sha = hex::encode(Sha256::digest(&raw_archive));
 
@@ -467,6 +480,84 @@ async fn publish_handler(
         },
         "gateResult": report_to_json(&report),
     })))
+}
+
+/// Resolve every citation in the manifest's `references`. Returns the list of
+/// references that are malformed or don't resolve (empty ⇒ all good). pubmed is
+/// checked via PubMed esummary, doi via Crossref (both precise existence APIs);
+/// snpedia/clinvar/url are checked for reachability (a 404/410 is a dead link).
+async fn unresolvable_references(manifest: &Value) -> Vec<String> {
+    let refs = match manifest.get("references").and_then(Value::as_array) {
+        Some(r) if !r.is_empty() => r,
+        _ => return vec!["manifest must declare at least one reference".into()],
+    };
+    let client = match reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(8))
+        .user_agent("commonsc-marketplace (+https://commonsc.io)")
+        .build()
+    {
+        Ok(c) => c,
+        Err(e) => return vec![format!("could not build HTTP client: {e}")],
+    };
+    let mut failures = Vec::new();
+    for (i, r) in refs.iter().enumerate() {
+        let ty = r.get("type").and_then(Value::as_str).unwrap_or("");
+        let id = r.get("id").and_then(Value::as_str).unwrap_or("").trim();
+        if let Some(err) = commonsc_devkit::validate::reference_format_error(ty, id) {
+            failures.push(format!("references[{i}]: {err}"));
+            continue;
+        }
+        let ok = match ty {
+            "pubmed" => pubmed_exists(&client, id).await,
+            "doi" => doi_exists(&client, id).await,
+            "snpedia" => url_reachable(&client, &format!("https://www.snpedia.com/index.php/{id}")).await,
+            "clinvar" => {
+                url_reachable(&client, &format!("https://www.ncbi.nlm.nih.gov/clinvar/variation/{id}/")).await
+            }
+            "url" => url_reachable(&client, id).await,
+            _ => false,
+        };
+        if !ok {
+            failures.push(format!("references[{i}] ({ty}:{id}) did not resolve — fix or remove it"));
+        }
+    }
+    failures
+}
+
+async fn pubmed_exists(client: &reqwest::Client, pmid: &str) -> bool {
+    let url = format!(
+        "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id={pmid}&retmode=json"
+    );
+    let Ok(resp) = client.get(&url).send().await else { return false };
+    if !resp.status().is_success() {
+        return false;
+    }
+    let Ok(body) = resp.json::<Value>().await else { return false };
+    // esummary returns result.<pmid>; an unknown id carries an "error" field.
+    match body.get("result").and_then(|r| r.get(pmid)) {
+        Some(entry) => entry.get("error").is_none(),
+        None => false,
+    }
+}
+
+async fn doi_exists(client: &reqwest::Client, doi: &str) -> bool {
+    // Crossref's REST API gives a precise 200/404 and doesn't bot-block the way
+    // publisher landing pages behind doi.org sometimes do.
+    let url = format!("https://api.crossref.org/works/{doi}");
+    match client.get(&url).send().await {
+        Ok(r) => r.status().is_success(),
+        Err(_) => false,
+    }
+}
+
+async fn url_reachable(client: &reqwest::Client, url: &str) -> bool {
+    // Lenient on purpose: a 403 (bot-blocked) still proves the resource exists;
+    // only an explicit not-found (or no response) counts as unreachable.
+    match client.get(url).send().await {
+        Ok(r) => !(r.status() == reqwest::StatusCode::NOT_FOUND
+            || r.status() == reqwest::StatusCode::GONE),
+        Err(_) => false,
+    }
 }
 
 // ── Status ────────────────────────────────────────────────────────────────

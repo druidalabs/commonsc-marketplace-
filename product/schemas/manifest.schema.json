@@ -19,6 +19,7 @@
     "input",
     "output",
     "supportedKinds",
+    "references",
     "publisher",
     "checksum",
     "signatures"
@@ -212,6 +213,38 @@
         "$ref": "genomic-io.schema.json#/$defs/FileKind"
       },
       "description": "Which parsed input formats this algorithm can run against. Compatibility UI uses this to grey out cards that don't match the user's sample."
+    },
+    "references": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Evidence the rsID→trait association rests on. At least one is required: a test that can't cite its source is not publishable. The marketplace gate resolves every pubmed/doi citation and rejects any that don't exist (killing fabricated/AI-hallucinated references); a reviewer confirms relevance. Surfaced to users as 'Sources' on the result.",
+      "items": {
+        "type": "object",
+        "required": ["type", "id"],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["pubmed", "doi", "snpedia", "clinvar", "url"],
+            "description": "Citation kind. `pubmed`/`doi` are resolved for existence at the gate; `snpedia`/`clinvar`/`url` are checked for reachability."
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "PMID (digits, e.g. `21162744`), DOI (`10.xxxx/...`), SNPedia page (e.g. `Rs1815739`), ClinVar id, or a full https URL."
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 240,
+            "description": "Optional human-readable label shown in the Sources list."
+          },
+          "rsids": {
+            "type": "array",
+            "items": { "type": "string", "pattern": "^rs[0-9]+$" },
+            "description": "Optional: which of the declared requiredRsids this reference supports."
+          }
+        }
+      }
     },
     "requirements": {
       "$ref": "genomic-io.schema.json#/$defs/Requirement",

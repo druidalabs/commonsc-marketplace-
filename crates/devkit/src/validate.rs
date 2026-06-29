@@ -103,6 +103,28 @@ pub fn run(project: &Path) -> Result<Report> {
         });
     }
 
+    // ── Check 1b — references are well-formed per type. The schema requires
+    //     ≥1 reference; this catches malformed PMIDs/DOIs/URLs early, before
+    //     the marketplace gate spends a network round-trip resolving them. ───
+    {
+        let mut ref_errors = Vec::new();
+        if let Some(refs) = manifest.get("references").and_then(Value::as_array) {
+            for (i, r) in refs.iter().enumerate() {
+                let ty = r.get("type").and_then(Value::as_str).unwrap_or("");
+                let id = r.get("id").and_then(Value::as_str).unwrap_or("").trim();
+                if let Some(err) = reference_format_error(ty, id) {
+                    ref_errors.push(format!("references[{i}]: {err}"));
+                }
+            }
+        }
+        checks.push(Check {
+            id: "references-format",
+            title: "references are well-formed (PMID/DOI/URL)".into(),
+            status: if ref_errors.is_empty() { Status::Pass } else { Status::Fail },
+            detail: if ref_errors.is_empty() { None } else { Some(ref_errors.join("\n")) },
+        });
+    }
+
     // ── Check 2 — entrypoint module file exists at the declared path. ─────
     let module = manifest
         .get("entrypoint")
@@ -232,6 +254,43 @@ pub fn result_envelope_errors(result: &Value) -> Result<Vec<String>> {
         .compile(&wrapper)
         .map_err(|e| anyhow!("compiling Result ref: {e}"))?;
     Ok(collect_errors(&compiled, result))
+}
+
+/// Validate one reference's `id` against its `type`. Returns Some(msg) if it's
+/// malformed. Public so the marketplace gate applies the same shape rules
+/// before it spends a network call resolving the citation.
+pub fn reference_format_error(ty: &str, id: &str) -> Option<String> {
+    if id.is_empty() {
+        return Some("empty id".into());
+    }
+    match ty {
+        "pubmed" => {
+            if id.bytes().all(|b| b.is_ascii_digit()) {
+                None
+            } else {
+                Some(format!("PMID must be digits, got `{id}`"))
+            }
+        }
+        "doi" => {
+            // DOIs start with a `10.<registrant>/<suffix>`.
+            if id.starts_with("10.") && id.contains('/') {
+                None
+            } else {
+                Some(format!("DOI must look like `10.xxxx/...`, got `{id}`"))
+            }
+        }
+        "url" => {
+            if id.starts_with("http://") || id.starts_with("https://") {
+                None
+            } else {
+                Some(format!("url must be http(s), got `{id}`"))
+            }
+        }
+        // snpedia / clinvar take a page/variation id; reachability is checked
+        // at the gate, so only require it be non-empty (handled above).
+        "snpedia" | "clinvar" => None,
+        other => Some(format!("unknown reference type `{other}`")),
+    }
 }
 
 /// Eagerly drain a JSONSchema validation into owned strings, freeing the

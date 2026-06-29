@@ -174,6 +174,13 @@ fn build_manifest(b: BuildManifest<'_>) -> Value {
             "schemaRef": "result.schema.json#/$defs/Result"
         },
         "supportedKinds": ["23andme", "ancestry", "myheritage", "livingdna", "vcf", "vcf-gz"],
+        // At least one citation is REQUIRED to publish — a test must be able to
+        // point at the evidence its rsID→trait claim rests on. The marketplace
+        // resolves pubmed/doi entries and rejects ones that don't exist, so
+        // replace this placeholder with a real PMID/DOI for your SNP.
+        "references": [
+            { "type": "pubmed", "id": "REPLACE_WITH_PMID", "rsids": [b.rsid] }
+        ],
         "requirements": {
             "memoryMiB": 128,
             "wallSeconds": 10,
