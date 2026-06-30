@@ -497,9 +497,22 @@ fn unpack_bundle(bytes: &[u8], dest: &Path) -> Result<(), SidecarError> {
     let mut archive = tar::Archive::new(decompressed.as_slice());
     for entry in archive.entries().map_err(|e| SidecarError::BundleUnpack(format!("tar entries: {e}")))? {
         let mut entry = entry.map_err(|e| SidecarError::BundleUnpack(format!("tar entry read: {e}")))?;
-        entry
+        let path = entry
+            .path()
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|_| "<unknown>".into());
+        // unpack_in refuses entries that would escape `dest` (`..`, absolute,
+        // symlink traversal), returning Ok(false). Don't silently skip them —
+        // reject the whole bundle so an attack attempt is loud, not a confusing
+        // "module not found" later.
+        let unpacked = entry
             .unpack_in(dest)
             .map_err(|e| SidecarError::BundleUnpack(format!("tar unpack: {e}")))?;
+        if !unpacked {
+            return Err(SidecarError::BundleUnpack(format!(
+                "bundle rejected: entry `{path}` would escape the destination (path traversal)"
+            )));
+        }
     }
     Ok(())
 }
@@ -554,6 +567,43 @@ mod tests {
             matches!(err, SidecarError::BundleUnpack(_)),
             "expected BundleUnpack, got {err:?}"
         );
+    }
+
+    #[test]
+    fn unpack_bundle_rejects_path_traversal() {
+        // A bundle whose entry path escapes the destination must be rejected,
+        // not silently skipped.
+        let content = b"pwned\n";
+        let mut tar_bytes = Vec::new();
+        {
+            let mut tar = tar::Builder::new(&mut tar_bytes);
+            let mut header = tar::Header::new_gnu();
+            header.set_size(content.len() as u64);
+            header.set_mode(0o644);
+            header.set_mtime(0);
+            // set_path rejects `..`, so write the traversal name straight into
+            // the raw GNU name field — exactly what a hostile bundle does — and
+            // append the header as-is (Builder::append doesn't re-validate).
+            {
+                let name = b"../escape.txt";
+                let gnu = header.as_gnu_mut().unwrap();
+                gnu.name[..name.len()].copy_from_slice(name);
+            }
+            header.set_cksum();
+            tar.append(&header, &content[..]).unwrap();
+            tar.finish().unwrap();
+        }
+        let mut compressed = Vec::new();
+        zstd::stream::copy_encode(&tar_bytes[..], &mut compressed, 3).unwrap();
+
+        let dest = tempfile::tempdir().unwrap();
+        let err = unpack_bundle(&compressed, dest.path()).unwrap_err();
+        assert!(
+            matches!(err, SidecarError::BundleUnpack(ref m) if m.contains("traversal")),
+            "expected a path-traversal rejection, got {err:?}"
+        );
+        // And nothing was written outside the destination.
+        assert!(!dest.path().parent().unwrap().join("escape.txt").exists());
     }
 
     #[test]

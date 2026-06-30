@@ -697,7 +697,18 @@ pub(crate) fn unpack_tar_zst(bytes: &[u8], dest: &Path) -> std::result::Result<(
     let mut archive = tar::Archive::new(decompressed.as_slice());
     for entry in archive.entries().map_err(|e| format!("tar entries: {e}"))? {
         let mut entry = entry.map_err(|e| format!("tar entry read: {e}"))?;
-        entry.unpack_in(dest).map_err(|e| format!("tar unpack: {e}"))?;
+        let path = entry
+            .path()
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|_| "<unknown>".into());
+        // unpack_in returns Ok(false) for an entry that would escape `dest`
+        // (path traversal). Reject the whole submission rather than silently
+        // skipping it — this unpacks an UNTRUSTED upload on the server.
+        if !entry.unpack_in(dest).map_err(|e| format!("tar unpack: {e}"))? {
+            return Err(format!(
+                "bundle rejected: entry `{path}` would escape the destination (path traversal)"
+            ));
+        }
     }
     Ok(())
 }
