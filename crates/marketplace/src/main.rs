@@ -695,9 +695,10 @@ pub(crate) fn unpack_tar_zst(bytes: &[u8], dest: &Path) -> std::result::Result<(
     let decompressed =
         zstd::stream::decode_all(bytes).map_err(|e| format!("zstd decode: {e}"))?;
     let mut archive = tar::Archive::new(decompressed.as_slice());
-    archive
-        .unpack(dest)
-        .map_err(|e| format!("tar unpack: {e}"))?;
+    for entry in archive.entries().map_err(|e| format!("tar entries: {e}"))? {
+        let mut entry = entry.map_err(|e| format!("tar entry read: {e}"))?;
+        entry.unpack_in(dest).map_err(|e| format!("tar unpack: {e}"))?;
+    }
     Ok(())
 }
 

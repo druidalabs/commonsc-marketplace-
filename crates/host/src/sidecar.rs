@@ -495,9 +495,12 @@ fn unpack_bundle(bytes: &[u8], dest: &Path) -> Result<(), SidecarError> {
     let decompressed = zstd::stream::decode_all(bytes)
         .map_err(|e| SidecarError::BundleUnpack(format!("zstd decode: {e}")))?;
     let mut archive = tar::Archive::new(decompressed.as_slice());
-    archive
-        .unpack(dest)
-        .map_err(|e| SidecarError::BundleUnpack(format!("tar unpack: {e}")))?;
+    for entry in archive.entries().map_err(|e| SidecarError::BundleUnpack(format!("tar entries: {e}")))? {
+        let mut entry = entry.map_err(|e| SidecarError::BundleUnpack(format!("tar entry read: {e}")))?;
+        entry
+            .unpack_in(dest)
+            .map_err(|e| SidecarError::BundleUnpack(format!("tar unpack: {e}")))?;
+    }
     Ok(())
 }
 
@@ -511,4 +514,357 @@ enum Event {
     Progress { percent: f32, label: Option<String> },
     Log { level: String, message: String },
     Error { message: String },
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    // ── Bundle unpacking ─────────────────────────────────────────────────────
+
+    #[test]
+    fn unpack_bundle_round_trip() {
+        let content = b"test content\n";
+        let mut tar_bytes = Vec::new();
+        {
+            let mut tar = tar::Builder::new(&mut tar_bytes);
+            let mut header = tar::Header::new_gnu();
+            header.set_size(content.len() as u64);
+            header.set_mode(0o644);
+            header.set_mtime(0);
+            header.set_cksum();
+            tar.append_data(&mut header, "hello.txt", &content[..])
+                .unwrap();
+        }
+        let mut compressed = Vec::new();
+        zstd::stream::copy_encode(&tar_bytes[..], &mut compressed, 3).unwrap();
+
+        let dest = tempfile::tempdir().unwrap();
+        unpack_bundle(&compressed, dest.path()).unwrap();
+        let extracted = std::fs::read(dest.path().join("hello.txt")).unwrap();
+        assert_eq!(extracted, content);
+    }
+
+    #[test]
+    fn unpack_bundle_rejects_corrupt_zst() {
+        let dest = tempfile::tempdir().unwrap();
+        let err = unpack_bundle(b"not zstd data at all", dest.path()).unwrap_err();
+        assert!(
+            matches!(err, SidecarError::BundleUnpack(_)),
+            "expected BundleUnpack, got {err:?}"
+        );
+    }
+
+    #[test]
+    fn unpack_bundle_rejects_garbage_tar() {
+        let mut compressed = Vec::new();
+        zstd::stream::copy_encode(&b"not a valid tar archive"[..], &mut compressed, 3).unwrap();
+        let dest = tempfile::tempdir().unwrap();
+        let err = unpack_bundle(&compressed, dest.path()).unwrap_err();
+        assert!(
+            matches!(err, SidecarError::BundleUnpack(_)),
+            "expected BundleUnpack, got {err:?}"
+        );
+    }
+
+    // ── Hash verification ────────────────────────────────────────────────────
+
+    #[test]
+    fn hash_mismatch_returns_error_before_spawn() {
+        let bytes = b"some bundle bytes";
+        let wrong_hash = "0000000000000000000000000000000000000000000000000000000000000000";
+        let err = run_one_with_config_events(
+            SidecarConfig::default(),
+            bytes,
+            wrong_hash,
+            "mod",
+            "fn",
+            json!({}),
+            &mut |_| {},
+        )
+        .unwrap_err();
+        assert!(
+            matches!(err, SidecarError::BundleHashMismatch { .. }),
+            "expected BundleHashMismatch, got {err:?}"
+        );
+    }
+
+    // ── Config defaults ──────────────────────────────────────────────────────
+
+    #[test]
+    fn config_default_deno_is_literal_deno() {
+        let cfg = SidecarConfig::default();
+        assert_eq!(cfg.deno, PathBuf::from("deno"));
+    }
+
+    #[test]
+    fn config_default_script_resolves_to_sidecar_dir() {
+        let cfg = SidecarConfig::default();
+        assert!(
+            cfg.script.ends_with("sidecar/run.ts"),
+            "expected script to end with sidecar/run.ts, got {}",
+            cfg.script.display()
+        );
+    }
+
+    #[test]
+    fn config_default_wall_timeout_is_30_seconds() {
+        let cfg = SidecarConfig::default();
+        assert_eq!(cfg.wall_timeout, Some(Duration::from_secs(30)));
+    }
+
+    #[test]
+    fn config_default_clean_env_is_false() {
+        let cfg = SidecarConfig::default();
+        assert!(!cfg.clean_env);
+    }
+
+    #[test]
+    fn config_default_deno_dir_is_none() {
+        let cfg = SidecarConfig::default();
+        assert!(cfg.deno_dir.is_none());
+    }
+
+    #[test]
+    fn config_default_allow_read_is_none() {
+        let cfg = SidecarConfig::default();
+        assert!(cfg.allow_read.is_none());
+    }
+
+    #[test]
+    fn config_with_allow_read_formats_flag_correctly() {
+        let cfg = SidecarConfig {
+            allow_read: Some(vec![
+                PathBuf::from("/tmp/bundle"),
+                PathBuf::from("/opt/sidecar"),
+            ]),
+            ..SidecarConfig::default()
+        };
+        let flag = match &cfg.allow_read {
+            Some(paths) => {
+                let joined = paths
+                    .iter()
+                    .map(|p| p.display().to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                format!("--allow-read={joined}")
+            }
+            None => "--allow-read".to_string(),
+        };
+        assert_eq!(flag, "--allow-read=/tmp/bundle,/opt/sidecar");
+    }
+
+    // ── Error Display formatting ─────────────────────────────────────────────
+
+    #[test]
+    fn error_display_spawn() {
+        let err = SidecarError::Spawn(std::io::Error::new(std::io::ErrorKind::NotFound, "deno not found"));
+        let msg = err.to_string();
+        assert!(msg.contains("deno"));
+        assert!(msg.contains("PATH"));
+    }
+
+    #[test]
+    fn error_display_timeout() {
+        let err = SidecarError::Timeout { seconds: 42 };
+        assert_eq!(err.to_string(), "algorithm exceeded the 42s wall-clock limit and was killed");
+    }
+
+    #[test]
+    fn error_display_bundle_hash_mismatch() {
+        let err = SidecarError::BundleHashMismatch {
+            declared: "abc".into(),
+            computed: "def".into(),
+        };
+        let msg = err.to_string();
+        assert!(msg.contains("abc"));
+        assert!(msg.contains("def"));
+    }
+
+    #[test]
+    fn error_display_algorithm() {
+        let err = SidecarError::Algorithm("division by zero".into());
+        assert_eq!(err.to_string(), "algorithm reported an error: division by zero");
+    }
+
+    #[test]
+    fn error_display_broken_pipe() {
+        let err = SidecarError::BrokenPipe;
+        assert_eq!(err.to_string(), "sidecar stdio pipe disappeared");
+    }
+
+    #[test]
+    fn error_display_early_exit() {
+        let err = SidecarError::EarlyExit;
+        assert_eq!(err.to_string(), "sidecar exited before it became ready");
+    }
+
+    // ── JSON protocol serialization ──────────────────────────────────────────
+
+    #[test]
+    fn host_command_hello_serializes() {
+        let cmd = HostCommand::Hello { expr: "1 + 1".into() };
+        let json = serde_json::to_string(&cmd).unwrap();
+        let expected = json!({"type": "hello", "expr": "1 + 1"});
+        assert_eq!(serde_json::from_str::<serde_json::Value>(&json).unwrap(), expected);
+    }
+
+    #[test]
+    fn host_command_run_serializes() {
+        let cmd = HostCommand::Run {
+            bundle_dir: "/tmp/bundle".into(),
+            module: "mod".into(),
+            function: "fn".into(),
+            variant_set: json!({"key": "value"}),
+        };
+        let json = serde_json::to_string(&cmd).unwrap();
+        let expected = json!({
+            "type": "run",
+            "bundleDir": "/tmp/bundle",
+            "module": "mod",
+            "function": "fn",
+            "variantSet": {"key": "value"}
+        });
+        assert_eq!(serde_json::from_str::<serde_json::Value>(&json).unwrap(), expected);
+    }
+
+    #[test]
+    fn host_command_shutdown_serializes() {
+        let cmd = HostCommand::Shutdown;
+        let json = serde_json::to_string(&cmd).unwrap();
+        assert_eq!(json, r#"{"type":"shutdown"}"#);
+    }
+
+    // ── JSON protocol deserialization ────────────────────────────────────────
+
+    #[test]
+    fn event_ready_deserializes() {
+        let event: Event = serde_json::from_str(r#"{"type":"ready"}"#).unwrap();
+        assert!(matches!(event, Event::Ready));
+    }
+
+    #[test]
+    fn event_result_deserializes() {
+        let event: Event =
+            serde_json::from_str(r#"{"type":"result","value":{"ok":true}}"#).unwrap();
+        assert!(matches!(event, Event::Result { .. }));
+        if let Event::Result { value } = &event {
+            assert_eq!(value, &json!({"ok": true}));
+        }
+    }
+
+    #[test]
+    fn event_error_deserializes() {
+        let event: Event =
+            serde_json::from_str(r#"{"type":"error","message":"oops"}"#).unwrap();
+        assert!(matches!(event, Event::Error { .. }));
+        if let Event::Error { message } = &event {
+            assert_eq!(message, "oops");
+        }
+    }
+
+    #[test]
+    fn event_progress_deserializes() {
+        let event: Event =
+            serde_json::from_str(r#"{"type":"progress","percent":0.5,"label":"working"}"#).unwrap();
+        assert!(matches!(event, Event::Progress { .. }));
+        if let Event::Progress { percent, label } = &event {
+            assert!((percent - 0.5).abs() < f32::EPSILON);
+            assert_eq!(label.as_deref(), Some("working"));
+        }
+    }
+
+    #[test]
+    fn event_progress_without_label_deserializes() {
+        let event: Event =
+            serde_json::from_str(r#"{"type":"progress","percent":1.0}"#).unwrap();
+        assert!(matches!(event, Event::Progress { .. }));
+        if let Event::Progress { percent, label } = &event {
+            assert!((percent - 1.0).abs() < f32::EPSILON);
+            assert!(label.is_none());
+        }
+    }
+
+    #[test]
+    fn event_log_deserializes() {
+        let event: Event =
+            serde_json::from_str(r#"{"type":"log","level":"info","message":"hello"}"#).unwrap();
+        assert!(matches!(event, Event::Log { .. }));
+        if let Event::Log { level, message } = &event {
+            assert_eq!(level, "info");
+            assert_eq!(message, "hello");
+        }
+    }
+
+    // ── HostEvent construction ───────────────────────────────────────────────
+
+    #[test]
+    fn host_event_progress_round_trips() {
+        let e = HostEvent::Progress {
+            percent: 0.75,
+            label: Some("computing".into()),
+        };
+        match e {
+            HostEvent::Progress { percent, label } => {
+                assert!((percent - 0.75).abs() < f32::EPSILON);
+                assert_eq!(label.unwrap(), "computing");
+            }
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    #[test]
+    fn host_event_log_round_trips() {
+        let e = HostEvent::Log {
+            level: "warn".into(),
+            message: "low disk".into(),
+        };
+        match e {
+            HostEvent::Log { level, message } => {
+                assert_eq!(level, "warn");
+                assert_eq!(message, "low disk");
+            }
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    // ── run_one_with_config_events progress callbacks ────────────────────────
+
+    #[test]
+    fn hash_mismatch_still_fires_start_progress() {
+        let mut events = Vec::new();
+        let bytes = b"whatever";
+        let wrong_hash = "f".repeat(64);
+        let _ = run_one_with_config_events(
+            SidecarConfig::default(),
+            bytes,
+            &wrong_hash,
+            "m",
+            "f",
+            json!({}),
+            &mut |e| events.push(e),
+        );
+        assert!(!events.is_empty(), "expected at least one progress event");
+        assert!(
+            matches!(events.first(), Some(HostEvent::Progress { .. })),
+            "first event should be progress"
+        );
+    }
+
+    // ── SidecarError From impls ──────────────────────────────────────────────
+
+    #[test]
+    fn io_error_converts_to_sidecar_error() {
+        let io = std::io::Error::new(std::io::ErrorKind::Other, "disk full");
+        let err: SidecarError = io.into();
+        assert!(matches!(err, SidecarError::Io(_)));
+    }
+
+    #[test]
+    fn json_error_converts_to_sidecar_error() {
+        let json: serde_json::Error = serde_json::from_str::<()>("invalid").unwrap_err();
+        let err: SidecarError = json.into();
+        assert!(matches!(err, SidecarError::Json(_)));
+    }
 }
