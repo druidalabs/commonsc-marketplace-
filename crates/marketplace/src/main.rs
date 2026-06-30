@@ -495,42 +495,76 @@ async fn publish_handler(
 /// references that are malformed or don't resolve (empty ⇒ all good). pubmed is
 /// checked via PubMed esummary, doi via Crossref (both precise existence APIs);
 /// snpedia/clinvar/url are checked for reachability (a 404/410 is a dead link).
+/// How many citations we'll resolve, and how many at once. The cap bounds the
+/// work a single submission can make the gate do (a manifest with hundreds of
+/// references can't turn the gate into a request amplifier); the concurrency
+/// keeps wall-time to ~one timeout rather than N timeouts back-to-back, and
+/// stays polite to PubMed/Crossref.
+const MAX_REFS: usize = 25;
+const REF_CONCURRENCY: usize = 5;
+
 async fn unresolvable_references(manifest: &Value) -> Vec<String> {
+    use futures::stream::{self, StreamExt};
+
     let refs = match manifest.get("references").and_then(Value::as_array) {
         Some(r) if !r.is_empty() => r,
         _ => return vec!["manifest must declare at least one reference".into()],
     };
+    if refs.len() > MAX_REFS {
+        return vec![format!(
+            "too many references ({}); declare at most {MAX_REFS}",
+            refs.len()
+        )];
+    }
     let client = match reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(8))
+        .timeout(std::time::Duration::from_secs(6))
         .user_agent("commonsc-marketplace (+https://commonsc.io)")
         .build()
     {
         Ok(c) => c,
         Err(e) => return vec![format!("could not build HTTP client: {e}")],
     };
-    let mut failures = Vec::new();
-    for (i, r) in refs.iter().enumerate() {
-        let ty = r.get("type").and_then(Value::as_str).unwrap_or("");
-        let id = r.get("id").and_then(Value::as_str).unwrap_or("").trim();
-        if let Some(err) = commonsc_devkit::validate::reference_format_error(ty, id) {
-            failures.push(format!("references[{i}]: {err}"));
-            continue;
-        }
-        let ok = match ty {
-            "pubmed" => pubmed_exists(&client, id).await,
-            "doi" => doi_exists(&client, id).await,
-            "snpedia" => url_reachable(&client, &format!("https://www.snpedia.com/index.php/{id}")).await,
-            "clinvar" => {
-                url_reachable(&client, &format!("https://www.ncbi.nlm.nih.gov/clinvar/variation/{id}/")).await
+
+    // Own the work items (and clone the cheap Arc-backed Client) so each check
+    // future borrows nothing tied to `manifest` — that keeps them Send for the
+    // multi-threaded handler. Resolve concurrently but bounded: buffer_unordered
+    // runs up to REF_CONCURRENCY at a time, so wall-time is ~one timeout, not N.
+    let items: Vec<(usize, String, String)> = refs
+        .iter()
+        .enumerate()
+        .map(|(i, r)| {
+            (
+                i,
+                r.get("type").and_then(Value::as_str).unwrap_or("").to_string(),
+                r.get("id").and_then(Value::as_str).unwrap_or("").trim().to_string(),
+            )
+        })
+        .collect();
+
+    let results: Vec<Option<String>> = stream::iter(items)
+        .map(|(i, ty, id)| {
+            let client = client.clone();
+            async move {
+                if let Some(err) = commonsc_devkit::validate::reference_format_error(&ty, &id) {
+                    return Some(format!("references[{i}]: {err}"));
+                }
+                let ok = match ty.as_str() {
+                    "pubmed" => pubmed_exists(&client, &id).await,
+                    "doi" => doi_exists(&client, &id).await,
+                    "snpedia" => url_reachable(&client, &format!("https://www.snpedia.com/index.php/{id}")).await,
+                    "clinvar" => {
+                        url_reachable(&client, &format!("https://www.ncbi.nlm.nih.gov/clinvar/variation/{id}/")).await
+                    }
+                    "url" => url_reachable(&client, &id).await,
+                    _ => false,
+                };
+                (!ok).then(|| format!("references[{i}] ({ty}:{id}) did not resolve — fix or remove it"))
             }
-            "url" => url_reachable(&client, id).await,
-            _ => false,
-        };
-        if !ok {
-            failures.push(format!("references[{i}] ({ty}:{id}) did not resolve — fix or remove it"));
-        }
-    }
-    failures
+        })
+        .buffer_unordered(REF_CONCURRENCY)
+        .collect()
+        .await;
+    results.into_iter().flatten().collect()
 }
 
 async fn pubmed_exists(client: &reqwest::Client, pmid: &str) -> bool {
