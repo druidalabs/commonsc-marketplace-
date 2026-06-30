@@ -67,12 +67,23 @@ fn main() -> anyhow::Result<()> {
             input,
         } => {
             let bytes = std::fs::read(&bundle)?;
+            // Verification is mandatory unless EXPLICITLY waived. Without this,
+            // omitting --sha256 silently self-hashed the bundle and "verified"
+            // it against itself — a no-op that hid missing integrity checks.
+            let expected = match (unchecked, &sha256) {
+                (true, _) => {
+                    // Documented escape hatch for iterating on an unsigned bundle
+                    // locally: self-hash so run_one's check is a deliberate no-op.
+                    eprintln!("warning: --unchecked set — skipping bundle sha256 verification (dev only)");
+                    use sha2::{Digest, Sha256};
+                    hex::encode(Sha256::digest(&bytes))
+                }
+                (false, Some(h)) => h.clone(),
+                (false, None) => anyhow::bail!(
+                    "--sha256 <hex> is required to verify the bundle; pass --unchecked to skip (dev only)"
+                ),
+            };
             let variant_set: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&input)?)?;
-            let expected = sha256.clone().unwrap_or_else(|| {
-                use sha2::{Digest, Sha256};
-                hex::encode(Sha256::digest(&bytes))
-            });
-            let _ = unchecked; // accepted for symmetry; if --sha256 isn't given we already match
             let value = sidecar::run_one(&bytes, &expected, &module, &function, variant_set)?;
             println!("{}", serde_json::to_string_pretty(&value)?);
             Ok(())
