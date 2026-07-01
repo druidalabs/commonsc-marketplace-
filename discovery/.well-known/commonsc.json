@@ -73,7 +73,28 @@
         "method": "GET",
         "path": "/evidence?q={trait}",
         "auth": "none",
-        "description": "GWAS Catalog evidence triage per trait — evidence_tier, ancestry portability, a real PubMed id to cite, and caveats. Query before authoring a test to ground it and pick a resolvable citation. NOTE: evidence triage, not clinical validity; `medical:true` flags disease/clinical/biomarker/pharmacogenomic traits, which are out of scope (CommonSense is trait/wellness/curiosity only)."
+        "description": "GWAS Catalog evidence triage per trait. Query BEFORE authoring a test: ground it in real evidence and pick a citation that will resolve at publish. Evidence triage, NOT clinical validity.",
+        "query": {
+          "q": "free-text trait to search, e.g. 'eye color' (required)",
+          "limit": "max results, default 10, cap 50 (optional)",
+          "include_medical": "default true; set false to exclude medical-flagged traits (optional)"
+        },
+        "response": {
+          "count": "number of results",
+          "results": [
+            {
+              "trait": "ontology-mapped trait label",
+              "tier": "strong | moderate | limited (evidence triage, NOT clinical validity)",
+              "portability": "european_only | multi_ancestry | non_european | unknown (who the evidence applies to; carry the caveat into your result)",
+              "pmid": "PubMed id of the primary study — cite as {type:'pubmed', id} in manifest.references; the publish gate resolves it, so use this, not a guess",
+              "study_url": "GWAS Catalog study page (fallback citation)",
+              "n_studies": "how many studies back this trait",
+              "summary_stats": "boolean — whether genome-wide per-variant stats exist (needed for a real polygenic score; top hits alone are not)",
+              "caveats": "array of plain-language warnings to surface in the result",
+              "medical": "true for disease/clinical/biomarker/pharmacogenomic traits — OUT OF SCOPE, do not build; CommonSense is trait/wellness/curiosity only"
+            }
+          ]
+        }
       }
     },
     "rateLimits": {
