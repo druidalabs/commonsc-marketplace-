@@ -376,6 +376,13 @@ pub async fn approve(
         .and_then(Value::as_str)
         .unwrap_or("")
         .to_string();
+    if archive_rel.is_empty()
+        || archive_rel.starts_with('.')
+        || archive_rel.starts_with('/')
+        || archive_rel.contains("..")
+    {
+        return redirect_to_admin_with("invalid project_archive path");
+    }
     let archive_path = state.workspace.join(&archive_rel);
     let bytes = match fs::read(&archive_path) {
         Ok(b) => b,
@@ -425,19 +432,23 @@ pub async fn approve(
             if let Some(obj) = record_value.as_object_mut() {
                 obj.insert("status".to_string(), Value::String("approved".to_string()));
             }
-            let _ = fs::write(
+            if let Err(e) = fs::write(
                 &record_path,
                 serde_json::to_string_pretty(&record_value).unwrap_or_default(),
-            );
+            ) {
+                return redirect_to_admin_with(&format!("failed to update record: {e}"));
+            }
             // Record the decision sidecar.
             let decision = ReviewDecision {
                 decided_at: now_millis(),
                 reason: None,
             };
-            let _ = fs::write(
+            if let Err(e) = fs::write(
                 decision_path(&state.workspace, &submission_id),
                 serde_json::to_string_pretty(&decision).unwrap_or_default(),
-            );
+            ) {
+                return redirect_to_admin_with(&format!("failed to write review decision: {e}"));
+            }
             redirect_to_admin_with(&format!(
                 "Approved {} v{} → promoted to catalog",
                 entry.manifest.id, entry.manifest.version
@@ -483,10 +494,12 @@ pub async fn reject(
     if let Some(obj) = record_value.as_object_mut() {
         obj.insert("status".to_string(), Value::String("rejected".to_string()));
     }
-    let _ = fs::write(
+    if let Err(e) = fs::write(
         &record_path,
         serde_json::to_string_pretty(&record_value).unwrap_or_default(),
-    );
+    ) {
+        return redirect_to_admin_with(&format!("failed to update record: {e}"));
+    }
     let decision = ReviewDecision {
         decided_at: now_millis(),
         reason: form
@@ -494,16 +507,25 @@ pub async fn reject(
             .as_deref()
             .and_then(|r| if r.trim().is_empty() { None } else { Some(r.trim().to_string()) }),
     };
-    let _ = fs::write(
+    if let Err(e) = fs::write(
         decision_path(&state.workspace, &submission_id),
         serde_json::to_string_pretty(&decision).unwrap_or_default(),
-    );
+    ) {
+        return redirect_to_admin_with(&format!("failed to write review decision: {e}"));
+    }
     redirect_to_admin_with(&format!("Rejected {submission_id}"))
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
 fn revalidate(workspace: &Path, archive_rel: &str) -> std::result::Result<Value, String> {
+    if archive_rel.is_empty()
+        || archive_rel.starts_with('.')
+        || archive_rel.starts_with('/')
+        || archive_rel.contains("..")
+    {
+        return Err("invalid project_archive path".into());
+    }
     let archive_path = workspace.join(archive_rel);
     let bytes = fs::read(&archive_path).map_err(|e| format!("read archive: {e}"))?;
     let tmp = TempDir::new().map_err(|e| format!("tempdir: {e}"))?;

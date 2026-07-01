@@ -38,6 +38,18 @@ pub struct ManifestSummary {
     pub version: String,
 }
 
+fn safe_path_component(s: &str, label: &str) -> Result<()> {
+    if s.is_empty()
+        || s.starts_with('.')
+        || s.contains('/')
+        || s.contains('\\')
+        || s.contains('\0')
+    {
+        return Err(anyhow!("{label} {s:?} is not a safe path component"));
+    }
+    Ok(())
+}
+
 /// Everything needed to sign + write a manifest, derived once so the local
 /// publish, the client-side remote signature, and the server-side co-sign all
 /// agree on the exact canonical bytes. `manifest` has the artifact set but not
@@ -62,6 +74,8 @@ pub fn prepare(project: &Path) -> Result<Prepared> {
     let version = crate::manifest::version(&manifest_template)?.to_string();
     let publisher_handle = crate::manifest::publisher_handle(&manifest_template)?.to_string();
     let publisher_key_id = crate::manifest::publisher_key_id(&manifest_template)?.to_string();
+    safe_path_component(&publisher_handle, "publisher_handle")?;
+    safe_path_component(id.splitn(2, '/').nth(1).unwrap_or_default(), "algo_handle")?;
 
     let bundle = build_artifact(project)?;
     let sha = hex::encode(Sha256::digest(&bundle));
