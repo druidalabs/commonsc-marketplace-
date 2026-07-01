@@ -213,9 +213,29 @@ base. Without it set, the app falls back to the in-app symlinked
   derived from a hardcoded seed. Production swaps in AWS KMS (or an HSM)
   before any third-party publisher trusts the signatures. The verify side
   on the customer doesn't change.
-- **Backups.** The marketplace's persistent state is just the `registry/`
-  directory and `submissions/` queue. A nightly cron `tar` to S3 (or a
-  Linode backup snapshot) is fine. Don't need a database yet.
+- **Backups.** The durable state — none of it in git — is:
+  - `submissions/` — the review queue and uploaded bundle archives
+  - `publishers/` — registrations, i.e. the publisher **public keys** that
+    signature verification trusts (lose it and every publisher must re-register)
+  - the **approved-registry data dir** (`--registry-dir`, kept *outside* the
+    git checkout so `git pull` can't clobber approvals) — the promoted catalog
+  - `/etc/commonsc/marketplace.env` — the ed25519 **co-signing private key**,
+    plus any Stripe / API secrets in env files
+
+  Prefer a **whole-VM Linode Backup snapshot**: it captures the data dirs *and*
+  `/etc` secrets *and* the systemd/nginx config in one shot. A selective `tar`
+  of just `registry/` + `submissions/` (an earlier note here) would silently
+  miss `publishers/` and the secrets — don't rely on it.
+
+  Additionally, keep the **co-signing private key backed up off-box** (password
+  manager / offline). It's the irreplaceable root of trust: the desktop app
+  pins its public key, so losing it means re-signing the whole catalog under a
+  new key shipped in an app update — don't let it live *only* inside a snapshot
+  in the same Linode account.
+
+  Everything else — the `/srv/commonsc` checkout, the built binary, the
+  first-party registry bundles, the evidence index — is re-derivable via
+  `git clone` + `cargo build`, so it needn't be backed up. No database yet.
 - **Rate limiting.** No throttling on validate/publish — fine while
   the user pool is "us + a few testers." Add `limit_req_zone` in nginx
   when external traffic shows up.
