@@ -6,6 +6,7 @@
 //! must be the same code — only the fixtures differ.
 
 pub mod canonical;
+pub mod evidence;
 pub mod init;
 pub mod manifest;
 pub mod publish;

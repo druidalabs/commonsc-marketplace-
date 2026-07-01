@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 
-use commonsc_devkit::{init, publish, register, run, validate};
+use commonsc_devkit::{evidence, init, publish, register, run, validate};
 
 // Module implementations live under `src/lib.rs` so the marketplace HTTP
 // service can call the same validate/publish gate code without duplicating it.
@@ -92,6 +92,27 @@ enum Cmd {
         /// Overwrite existing credentials if a file is already there.
         #[arg(long)]
         force: bool,
+    },
+    /// Look up GWAS Catalog evidence for a trait before you build. Prints the
+    /// evidence tier, ancestry portability, a real PubMed id to cite (the
+    /// publish gate resolves it), and caveats — so you pick a well-evidenced,
+    /// in-scope trait and fill manifest.references with a citation that passes
+    /// review. Same evidence layer the in-app AI author uses.
+    Evidence {
+        /// Free-text trait to search, e.g. "eye color", "caffeine", "bitter taste".
+        query: String,
+        /// Maximum results to show.
+        #[arg(long, default_value_t = 8)]
+        limit: usize,
+        /// API base URL. Defaults to credentials.api, then https://api.commonsc.io.
+        #[arg(long)]
+        api: Option<String>,
+        /// Credentials file path (only used to resolve the API base).
+        #[arg(long)]
+        config: Option<PathBuf>,
+        /// Emit the raw JSON response instead of the human summary.
+        #[arg(long)]
+        json: bool,
     },
     /// Validate an algorithm project: schema-check the manifest, smoke-test the
     /// fixture against the entrypoint's declared input/output schemas, and
@@ -215,6 +236,10 @@ fn main() -> Result<()> {
             })?;
             summary.print();
             Ok(())
+        }
+        Cmd::Evidence { query, limit, api, config, json } => {
+            let base = resolve_remote_api(api.as_deref(), config.as_deref())?;
+            evidence::run(&query, &base, limit, json)
         }
         Cmd::Validate { project } => {
             let report = validate::run(&project).with_context(|| {
