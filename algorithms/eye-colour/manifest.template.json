@@ -18,8 +18,12 @@
   "id": "commonsc/eye-colour",
   "input": {
     "referenceBuild": "GRCh38",
-    "schemaRef": "genomic-io.schema.json#/$defs/VariantSet"
+    "schemaRef": "genomic-io.schema.json#/$defs/VariantSet",
+    "requiredRsids": ["rs12913832"]
   },
+  "references": [
+    { "type": "pubmed", "id": "36672889" }
+  ],
   "license": "Apache-2.0",
   "lockfile": {
     "dependencies": [],

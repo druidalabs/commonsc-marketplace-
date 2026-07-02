@@ -18,8 +18,12 @@
   "id": "commonsc/photic-sneeze",
   "input": {
     "referenceBuild": "GRCh38",
-    "schemaRef": "genomic-io.schema.json#/$defs/VariantSet"
+    "schemaRef": "genomic-io.schema.json#/$defs/VariantSet",
+    "requiredRsids": ["rs10427255"]
   },
+  "references": [
+    { "type": "pubmed", "id": "20585627" }
+  ],
   "license": "Apache-2.0",
   "lockfile": {
     "dependencies": [],
